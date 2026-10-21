@@ -4,9 +4,10 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as SecureStore from 'expo-secure-store';
-import { ArrowLeft, Share2, Star, MapPin, X } from 'lucide-react-native';
+import { ArrowLeft, Share2, Star, MapPin, X, ChevronRight } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { endpoints } from '../../config/api';
+import { useTheme } from '../../context/ThemeContext';
 
 const { width } = Dimensions.get('window');
 
@@ -14,6 +15,7 @@ export default function MovieDetailsScreen() {
     const { id } = useLocalSearchParams();
     const router = useRouter();
     const insets = useSafeAreaInsets();
+    const { colors, isDark } = useTheme();
     const [movie, setMovie] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [interested, setInterested] = useState(false);
@@ -78,13 +80,21 @@ export default function MovieDetailsScreen() {
 
     if (loading) {
         return (
-            <View style={styles.loadingContainer}>
+            <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
+                <StatusBar style={isDark ? 'light' : 'dark'} />
                 <ActivityIndicator size="large" color="#8A2BE2" />
             </View>
         );
     }
 
-    if (!movie) return <View style={styles.container}><Text style={{ color: '#FFF' }}>Movie not found</Text></View>;
+    if (!movie) {
+        return (
+            <View style={[styles.container, { backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }]}>
+                <StatusBar style={isDark ? 'light' : 'dark'} />
+                <Text style={{ color: colors.text }}>Movie not found</Text>
+            </View>
+        );
+    }
 
     // Check if movie is upcoming (safe check)
     const isUpcoming = movie?.status === 'COMING_SOON';
@@ -110,10 +120,27 @@ export default function MovieDetailsScreen() {
         }
     };
 
+    const handleSelectShowtimes = (cinemaName?: string) => {
+        const langs = (movie.languages || '').split(',').map((l: string) => l.trim()).filter(Boolean);
+        if (langs.length > 1) {
+            setShowLanguageModal(true);
+        } else {
+            router.push({
+                pathname: `/movie/${id}/select-cinema`,
+                params: {
+                    title: movie.title,
+                    language: langs[0] || movie.language || 'English',
+                    poster: movie.poster_url,
+                    cinema: cinemaName || undefined,
+                }
+            });
+        }
+    };
+
     return (
-        <View style={{ flex: 1, backgroundColor: '#0B0B15' }}>
+        <View style={{ flex: 1, backgroundColor: colors.background }}>
             <StatusBar style="light" />
-            <ScrollView showsVerticalScrollIndicator={false} style={styles.container} bounces={false} contentContainerStyle={{ paddingBottom: 160 }}>
+            <ScrollView showsVerticalScrollIndicator={false} style={[styles.container, { backgroundColor: colors.background }]} bounces={false} contentContainerStyle={{ paddingBottom: 60 }}>
 
                 {/* Poster / Header */}
                 <ImageBackground
@@ -122,111 +149,111 @@ export default function MovieDetailsScreen() {
                     resizeMode="cover"
                 >
                     <LinearGradient
-                        colors={['transparent', '#0B0B15']}
+                        colors={['transparent', colors.background]}
                         style={styles.gradient}
                     />
 
-                    {/* Header Actions */}
+                    {/* Header Actions - only Back and Share, no toggle here */}
                     <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
                         <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
                             <ArrowLeft color="#FFF" size={24} />
                         </TouchableOpacity>
-                        <View style={{ flexDirection: 'row', gap: 15 }}>
-                            <TouchableOpacity style={styles.iconBtn} onPress={handleShare}>
-                                <Share2 color="#FFF" size={24} />
-                            </TouchableOpacity>
-                        </View>
+                        <TouchableOpacity style={styles.iconBtn} onPress={handleShare}>
+                            <Share2 color="#FFF" size={22} />
+                        </TouchableOpacity>
                     </View>
                 </ImageBackground>
 
                 {/* Content */}
                 <View style={styles.content}>
-                    <Text style={styles.title}>{movie.title}</Text>
+                    <Text style={[styles.title, { color: colors.text }]}>{movie.title}</Text>
 
                     <View style={styles.tagRow}>
                         <View style={styles.tag}><Text style={styles.tagText}>{movie.genre?.split(',')[0] || 'GENRE'}</Text></View>
-                        <View style={styles.timeTag}>
-                            <Text style={styles.timeText}>⏱ {Math.floor(movie.duration_minutes / 60)}h {movie.duration_minutes % 60}m</Text>
+                        <View style={[styles.timeTag, { backgroundColor: isDark ? '#1F1F2E' : '#F3E8FF' }]}>
+                            <Text style={[styles.timeText, { color: isDark ? '#9CA3AF' : '#8A2BE2' }]}>⏱ {Math.floor(movie.duration_minutes / 60)}h {movie.duration_minutes % 60}m</Text>
                         </View>
-                        <View style={styles.ratingTag}>
+                        <View style={[styles.ratingTag, { backgroundColor: isDark ? '#1F1F2E' : '#FEF9C3' }]}>
                             <Star fill="#FACC15" color="#FACC15" size={14} />
-                            <Text style={styles.ratingText}>{movie.rating ? movie.rating.toFixed(1) : "0.0"}</Text>
+                            <Text style={[styles.ratingText, { color: isDark ? '#FFF' : '#854D0E' }]}>{movie.rating ? movie.rating.toFixed(1) : "0.0"}</Text>
                         </View>
                     </View>
 
-                    <Text style={styles.sectionTitle}>SYNOPSIS</Text>
-                    <Text style={styles.synopsis}>{movie.description || "No description available."}</Text>
+                    <Text style={[styles.sectionTitle, { color: isDark ? '#9CA3AF' : '#8A2BE2' }]}>SYNOPSIS</Text>
+                    <Text style={[styles.synopsis, { color: isDark ? '#D1D5DB' : '#374151' }]}>{movie.description || "No description available."}</Text>
 
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 24, marginBottom: 16 }}>
-                        <Text style={styles.sectionTitleWithoutMargin}>TOP CAST</Text>
+                        <Text style={[styles.sectionTitleWithoutMargin, { color: isDark ? '#9CA3AF' : '#8A2BE2' }]}>TOP CAST</Text>
                         <TouchableOpacity><Text style={styles.seeAll}>SEE ALL</Text></TouchableOpacity>
                     </View>
 
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.castList}>
                         {castList.length > 0 ? castList.map((actor: string, index: number) => (
                             <View key={index} style={styles.castItem}>
-                                <View style={styles.castAvatar}>
-                                    <Text style={{ color: '#FFF', fontSize: 20, fontWeight: 'bold' }}>{actor.charAt(0)}</Text>
+                                <View style={[styles.castAvatar, { backgroundColor: isDark ? '#1F1F2E' : '#F3E8FF', borderColor: isDark ? '#2D2D3F' : '#E9D5FF' }]}>
+                                    <Text style={{ color: isDark ? '#FFF' : '#8A2BE2', fontSize: 20, fontWeight: 'bold' }}>{actor.charAt(0)}</Text>
                                 </View>
-                                <Text style={styles.castName} numberOfLines={2}>{actor}</Text>
+                                <Text style={[styles.castName, { color: colors.text }]} numberOfLines={2}>{actor}</Text>
                             </View>
                         )) : (
-                            <Text style={{ color: '#6B7280' }}>Cast info unavailable</Text>
+                            <Text style={{ color: colors.textSecondary }}>Cast info unavailable</Text>
                         )}
                     </ScrollView>
 
-                    {/* Available Theaters Card - Hide if upcoming */}
-                    {!isUpcoming && availableTheatres.length > 0 && (
-                        <View style={styles.theaterCard}>
-                            <Text style={styles.cardLabel}>AVAILABLE CINEMAS ({availableTheatres.length})</Text>
-                            {availableTheatres.slice(0, 3).map((t: any) => (
-                                <View key={t.theatre_id} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
-                                    <Text style={styles.theaterName}>{t.theatre_name}</Text>
-                                    <MapPin color="#8A2BE2" size={16} />
-                                </View>
-                            ))}
-                        </View>
-                    )}
-
-                    {isUpcoming && (
-                        <View style={styles.theaterCard}>
-                            <Text style={styles.cardLabel}>RELEASE DATE</Text>
-                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <Text style={styles.theaterName}>
-                                    {movie.release_date
-                                        ? new Date(movie.release_date).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
-                                        : "To Be Announced"}
-                                </Text>
-                            </View>
-                        </View>
+                    {/* Select Showtimes Button directly after TOP CAST */}
+                    {!isUpcoming ? (
+                        <TouchableOpacity
+                            style={[styles.bookButton, { marginTop: 8, marginBottom: 24 }]}
+                            onPress={() => handleSelectShowtimes()}
+                            activeOpacity={0.8}
+                        >
+                            <Text style={styles.bookButtonText}>SELECT SHOWTIMES</Text>
+                        </TouchableOpacity>
+                    ) : (
+                        <TouchableOpacity
+                            style={[
+                                styles.bookButton,
+                                {
+                                    marginTop: 8,
+                                    marginBottom: 24,
+                                    backgroundColor: interested ? '#10B981' : '#8A2BE2'
+                                }
+                            ]}
+                            onPress={handleInterest}
+                            activeOpacity={interested ? 1 : 0.7}
+                        >
+                            <Text style={styles.bookButtonText}>
+                                {interested ? "INTEREST REGISTERED" : "I'M INTERESTED"}
+                            </Text>
+                        </TouchableOpacity>
                     )}
 
                     {/* Appended Real User Reviews Section */}
                     <View style={{ marginTop: 24, marginBottom: 16 }}>
-                        <Text style={styles.sectionTitleWithoutMargin}>USER REVIEWS</Text>
+                        <Text style={[styles.sectionTitleWithoutMargin, { color: isDark ? '#9CA3AF' : '#8A2BE2' }]}>USER REVIEWS</Text>
 
                         {reviews.length > 0 ? (
                             reviews.map((r, i) => (
-                                <View key={i} style={styles.reviewCard}>
+                                <View key={i} style={[styles.reviewCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                                     <View style={styles.reviewHeader}>
                                         <View style={styles.reviewUser}>
-                                            <View style={styles.smallAvatar}>
-                                                <Text style={{ color: '#FFF', fontSize: 12, fontWeight: 'bold' }}>{r.user_name?.charAt(0) || 'A'}</Text>
+                                            <View style={[styles.smallAvatar, { backgroundColor: isDark ? '#2D2D3F' : '#F3E8FF' }]}>
+                                                <Text style={{ color: isDark ? '#FFF' : '#8A2BE2', fontSize: 12, fontWeight: 'bold' }}>{r.user_name?.charAt(0) || 'A'}</Text>
                                             </View>
-                                            <Text style={styles.reviewName}>{r.user_name || 'Anonymous'}</Text>
+                                            <Text style={[styles.reviewName, { color: colors.text }]}>{r.user_name || 'Anonymous'}</Text>
                                         </View>
-                                        <View style={styles.reviewStars}>
+                                        <View style={[styles.reviewStars, { backgroundColor: isDark ? '#1F1F2E' : '#FEF9C3' }]}>
                                             <Star fill="#FACC15" color="#FACC15" size={14} />
-                                            <Text style={styles.reviewRatingText}>{r.rating.toFixed(1)}</Text>
+                                            <Text style={[styles.reviewRatingText, { color: isDark ? '#FACC15' : '#854D0E' }]}>{r.rating.toFixed(1)}</Text>
                                         </View>
                                     </View>
                                     {r.comment && (
-                                        <Text style={styles.reviewComment}>{r.comment}</Text>
+                                        <Text style={[styles.reviewComment, { color: isDark ? '#D1D5DB' : '#4B5563' }]}>{r.comment}</Text>
                                     )}
                                 </View>
                             ))
                         ) : (
-                            <Text style={{ marginTop: 12, color: '#6B7280', fontStyle: 'italic', fontSize: 14 }}>
+                            <Text style={{ marginTop: 12, color: colors.textSecondary, fontStyle: 'italic', fontSize: 14 }}>
                                 No reviews yet. Be the first to write a review!
                             </Text>
                         )}
@@ -247,87 +274,57 @@ export default function MovieDetailsScreen() {
                     activeOpacity={1}
                     onPress={() => setShowLanguageModal(false)}
                 >
-                    <View style={styles.modalContent}>
+                    <View style={[styles.modalContent, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]}>
                         <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Select Language</Text>
+                            <Text style={[styles.modalTitle, { color: colors.text }]}>Select Language</Text>
                             <TouchableOpacity onPress={() => setShowLanguageModal(false)}>
-                                <X color="#9CA3AF" size={24} />
+                                <X color={colors.textSecondary} size={24} />
                             </TouchableOpacity>
                         </View>
 
                         <View style={styles.languageList}>
-                            {(movie.languages || 'English').split(',').map((lang: string) => (
-                                <TouchableOpacity
-                                    key={lang.trim()}
-                                    style={styles.languageItem}
-                                    onPress={() => {
-                                        setShowLanguageModal(false);
-                                        router.push({
-                                            pathname: `/movie/${id}/select-cinema`,
-                                            params: {
-                                                title: movie.title,
-                                                language: lang.trim(),
-                                                poster: movie.poster_url
-                                            }
-                                        });
-                                    }}
-                                >
-                                    <Text style={styles.languageText}>{lang.trim()}</Text>
-                                    <View style={styles.radioOuter}>
-                                        <View style={styles.radioInner} />
-                                    </View>
-                                </TouchableOpacity>
-                            ))}
+                            {(movie.languages || 'English').split(',').map((lang: string) => {
+                                const trimmed = lang.trim();
+                                const isSelected = selectedLanguage === trimmed;
+                                return (
+                                    <TouchableOpacity
+                                        key={trimmed}
+                                        style={[styles.languageItem, { borderBottomColor: colors.border }]}
+                                        onPress={() => {
+                                            setSelectedLanguage(trimmed);
+                                            setTimeout(() => {
+                                                setShowLanguageModal(false);
+                                                router.push({
+                                                    pathname: `/movie/${id}/select-cinema`,
+                                                    params: {
+                                                        title: movie.title,
+                                                        language: trimmed,
+                                                        poster: movie.poster_url
+                                                    }
+                                                });
+                                            }, 200);
+                                        }}
+                                        activeOpacity={0.7}
+                                    >
+                                        <Text style={[styles.languageText, { color: colors.text }]}>{trimmed}</Text>
+                                        <View style={[styles.radioOuter, { borderColor: isSelected ? '#8A2BE2' : (isDark ? '#4B5563' : '#CBD5E1') }]}>
+                                            {isSelected && <View style={styles.radioInner} />}
+                                        </View>
+                                    </TouchableOpacity>
+                                );
+                            })}
                         </View>
                     </View>
                 </TouchableOpacity>
             </Modal>
 
-            {/* Bottom Button */}
-            <View style={styles.bottomBar}>
-                {isUpcoming ? (
-                    <TouchableOpacity
-                        style={[
-                            styles.bookButton,
-                            { backgroundColor: interested ? '#10B981' : '#8A2BE2' } // Green if interested, else Theme Purple
-                        ]}
-                        onPress={handleInterest}
-                        activeOpacity={interested ? 1 : 0.7}
-                    >
-                        <Text style={styles.bookButtonText}>
-                            {interested ? "INTEREST REGISTERED" : "I'M INTERESTED"}
-                        </Text>
-                    </TouchableOpacity>
-                ) : (
-                    <TouchableOpacity
-                        style={styles.bookButton}
-                        onPress={() => {
-                            const langs = (movie.languages || '').split(',').map((l: string) => l.trim()).filter(Boolean);
-                            if (langs.length > 1) {
-                                setShowLanguageModal(true);
-                            } else {
-                                router.push({
-                                    pathname: `/movie/${id}/select-cinema`,
-                                    params: {
-                                        title: movie.title,
-                                        language: langs[0] || movie.language || 'English',
-                                        poster: movie.poster_url
-                                    }
-                                });
-                            }
-                        }}
-                    >
-                        <Text style={styles.bookButtonText}>SELECT SHOWTIMES</Text>
-                    </TouchableOpacity>
-                )}
-            </View>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#0B0B15' },
-    loadingContainer: { flex: 1, backgroundColor: '#0B0B15', justifyContent: 'center', alignItems: 'center' },
+    container: { flex: 1 },
+    loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
     posterImage: { width: width, height: 450, justifyContent: 'space-between' },
     gradient: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 300 },
@@ -363,6 +360,15 @@ const styles = StyleSheet.create({
     theaterCard: { backgroundColor: '#13131A', padding: 20, borderRadius: 24, borderWidth: 1, borderColor: '#2D2D3F', borderStyle: 'dashed' },
     cardLabel: { color: '#6B7280', fontSize: 11, fontWeight: 'bold', marginBottom: 8, letterSpacing: 1 },
     theaterName: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
+    cinemaRowItem: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: 10,
+        paddingHorizontal: 12,
+        borderRadius: 12,
+        borderWidth: 1,
+    },
 
     bottomBar: {
         position: 'absolute', bottom: 0, left: 0, right: 0,

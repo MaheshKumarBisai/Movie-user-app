@@ -8,6 +8,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as SecureStore from 'expo-secure-store';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { endpoints } from '../../config/api';
+import { useTheme } from '../../context/ThemeContext';
+import { getCityLandmarkIcon } from '../../components/LandmarkIcons';
 
 const { width } = Dimensions.get('window');
 
@@ -33,6 +35,7 @@ export default function HomeScreen() {
     const [loading, setLoading] = useState(true);
     const [lastBackPressed, setLastBackPressed] = useState(0);
     const [unreadCount, setUnreadCount] = useState(0);
+    const { colors, isDark } = useTheme();
 
     const onBackPress = useCallback(() => {
         const currentTime = Date.now();
@@ -46,26 +49,6 @@ export default function HomeScreen() {
         }
         return true;
     }, [lastBackPressed]);
-
-    useFocusEffect(
-        useCallback(() => {
-            const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
-            return () => backHandler.remove();
-        }, [onBackPress])
-    );
-
-    useFocusEffect(
-        useCallback(() => {
-            fetchUnreadCount();
-        }, [])
-    );
-
-    useEffect(() => {
-        const interval = setInterval(() => {
-            fetchUnreadCount();
-        }, 10000);
-        return () => clearInterval(interval);
-    }, []);
 
     const fetchUnreadCount = async () => {
         try {
@@ -84,16 +67,13 @@ export default function HomeScreen() {
     const loadData = async (showLoader = true) => {
         try {
             if (showLoader) setLoading(true);
-            // Get Location
             const loc = await SecureStore.getItemAsync('user_location');
             const cityParam = loc && loc !== 'Select Location' ? loc : '';
             if (loc) setLocation(loc);
 
-            // Get Token
             const token = await SecureStore.getItemAsync('token');
             const headers: HeadersInit = token ? { 'Authorization': `Bearer ${token}` } : {};
 
-            // Get Movies with city filter
             const url = cityParam ? `${endpoints.movies}?city=${encodeURIComponent(cityParam)}` : endpoints.movies;
             const response = await fetch(url, { headers });
             const data = await response.json();
@@ -106,24 +86,51 @@ export default function HomeScreen() {
         }
     };
 
-    useEffect(() => {
-        loadData(true);
-        const interval = setInterval(() => {
-            loadData(false);
-        }, 10000); // 10 seconds
-        return () => clearInterval(interval);
-    }, []);
-
     useFocusEffect(
         useCallback(() => {
+            const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+            
+            // Initial load on focus
             loadData(false);
-        }, [])
+            fetchUnreadCount();
+
+            // Refresh data periodically only while focused
+            const interval = setInterval(() => {
+                loadData(false);
+                fetchUnreadCount();
+            }, 30000); // 30 seconds
+
+            return () => {
+                backHandler.remove();
+                clearInterval(interval);
+            };
+        }, [onBackPress])
     );
+
+    useEffect(() => {
+        loadData(true);
+    }, []);
+
 
 
     const renderMovieCard = (movie: Movie) => (
-        <TouchableOpacity key={movie.id} style={styles.movieCard} onPress={() => router.push(`/movie/${movie.id}`)}>
-            {/* Using search for now as detail page isn't main task, or maybe just alert */}
+        <TouchableOpacity 
+            key={movie.id} 
+            style={[
+                styles.movieCard, 
+                { 
+                    backgroundColor: colors.surface, 
+                    borderColor: colors.border, 
+                    borderWidth: isDark ? 0 : 1,
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: isDark ? 0 : 0.08,
+                    shadowRadius: 4,
+                    elevation: isDark ? 0 : 2,
+                }
+            ]} 
+            onPress={() => router.push(`/movie/${movie.id}`)}
+        >
             <Image 
                 source={{ uri: movie.poster_url || 'https://via.placeholder.com/150' }} 
                 style={styles.poster} 
@@ -131,7 +138,7 @@ export default function HomeScreen() {
                 transition={200}
                 cachePolicy="memory-disk"
             />
-            <LinearGradient colors={['transparent', 'rgba(0,0,0,0.9)']} style={styles.gradient} />
+            <LinearGradient colors={['transparent', isDark ? 'rgba(0,0,0,0.9)' : 'rgba(0,0,0,0.75)']} style={styles.gradient} />
             <View style={styles.movieInfo}>
                 <Text style={styles.movieTitle} numberOfLines={1}>{movie.title}</Text>
                 <View style={styles.ratingContainer}>
@@ -144,7 +151,19 @@ export default function HomeScreen() {
 
     const renderVerticalMovieItem = (movie: Movie) => (
         <TouchableOpacity key={movie.id} onPress={() => router.push(`/movie/${movie.id}`)}>
-            <View style={styles.verticalCard}>
+            <View style={[
+                styles.verticalCard,
+                {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                    borderWidth: 1,
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: isDark ? 0 : 0.06,
+                    shadowRadius: 4,
+                    elevation: isDark ? 0 : 2,
+                }
+            ]}>
                 <Image
                     source={{ uri: movie.poster_url || 'https://via.placeholder.com/150' }}
                     style={styles.verticalPoster}
@@ -153,7 +172,7 @@ export default function HomeScreen() {
                     cachePolicy="memory-disk"
                 />
                 <View style={styles.verticalInfo}>
-                    <Text style={styles.verticalTitle}>{movie.title}</Text>
+                    <Text style={[styles.verticalTitle, { color: colors.text }]}>{movie.title}</Text>
                     <View style={styles.ratingContainer}>
                         <Text style={styles.ratingText}>★ {movie.rating ? movie.rating.toFixed(1) : "0.0"}</Text>
                     </View>
@@ -162,38 +181,55 @@ export default function HomeScreen() {
         </TouchableOpacity>
     );
 
-    if (loading) return <View style={styles.loadingContainer}><ActivityIndicator color="#8A2BE2" /></View>;
+    if (loading) return <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}><ActivityIndicator color="#8A2BE2" /></View>;
 
     // Filter movies based on backend status
     const nowShowing = movies.filter(m => m.status === 'ACTIVE' || !m.status);
     const comingSoon = movies.filter(m => m.status === 'COMING_SOON');
 
     return (
-        <View style={[styles.container, { paddingTop: insets.top + 10 }]}>
-            <StatusBar style="light" />
+        <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top + 10 }]}>
+            <StatusBar style={isDark ? 'light' : 'dark'} />
 
             {/* Header */}
             <View style={styles.header}>
                 <View>
-                    <Text style={styles.greeting}>Welcome Back 👋</Text>
+                    <Text style={[styles.greeting, { color: colors.textSecondary }]}>Welcome Back 👋</Text>
                     <TouchableOpacity style={styles.locationButton} onPress={() => router.push('/location')}>
                         <MapPin color="#8A2BE2" size={16} />
-                        <Text style={styles.locationText}>{location}</Text>
+                        <Text style={[styles.locationText, { color: colors.text }]}>{location}</Text>
+                        {location !== 'Select Location' && (
+                            <View style={{ marginLeft: 6 }}>
+                                {getCityLandmarkIcon(location, 16, '#8A2BE2')}
+                            </View>
+                        )}
                     </TouchableOpacity>
                 </View>
-                <TouchableOpacity style={styles.iconButton} onPress={() => router.push('/notifications')}>
-                    <View>
-                        <Bell color="#FFF" size={24} />
-                        {unreadCount > 0 && <View style={styles.notificationBadge} />}
-                    </View>
-                </TouchableOpacity>
+                <View style={styles.headerActions}>
+                    <TouchableOpacity 
+                        style={[
+                            styles.iconButton,
+                            {
+                                backgroundColor: colors.surface,
+                                borderColor: colors.border,
+                                borderWidth: 1,
+                            }
+                        ]} 
+                        onPress={() => router.push('/notifications')}
+                    >
+                        <View>
+                            <Bell color={colors.text} size={22} />
+                            {unreadCount > 0 && <View style={styles.notificationBadge} />}
+                        </View>
+                    </TouchableOpacity>
+                </View>
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
 
                 {/* Now Showing Section */}
                 <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>Now Showing</Text>
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Now Showing</Text>
                 </View>
 
                 {nowShowing.length > 0 ? (
@@ -201,20 +237,19 @@ export default function HomeScreen() {
                         {nowShowing.map(renderMovieCard)}
                     </ScrollView>
                 ) : (
-                    <Text style={{ color: '#6B7280', marginLeft: 20 }}>No movies showing currently.</Text>
+                    <Text style={{ color: colors.textMuted, marginLeft: 20 }}>No movies showing currently.</Text>
                 )}
-
 
                 {/* Coming Soon Section */}
                 <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>Coming Soon</Text>
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Coming Soon</Text>
                 </View>
 
                 <View style={styles.verticalList}>
                     {comingSoon.length > 0 ? (
                         comingSoon.map(renderVerticalMovieItem)
                     ) : (
-                        <Text style={{ color: '#6B7280' }}>No upcoming movies.</Text>
+                        <Text style={{ color: colors.textMuted }}>No upcoming movies.</Text>
                     )}
                 </View>
 
@@ -228,6 +263,7 @@ const styles = StyleSheet.create({
     loadingContainer: { flex: 1, backgroundColor: '#0B0B15', justifyContent: 'center', alignItems: 'center' },
 
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: width * 0.05, marginBottom: 20 },
+    headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     greeting: { color: '#9CA3AF', fontSize: 14, marginBottom: 4 },
     locationButton: { flexDirection: 'row', alignItems: 'center' },
     locationText: { color: '#FFF', fontSize: 16, fontWeight: 'bold', marginLeft: 6 },

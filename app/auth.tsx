@@ -11,7 +11,7 @@ import { ThemedInput } from '../components/ui/ThemedInput';
 import { PrimaryButton } from '../components/ui/PrimaryButton';
 import { endpoints } from '../config/api';
 import { useAuth } from '../context/AuthContext';
-
+import { useTheme } from '../context/ThemeContext';
 import { CustomAlert } from '../components/ui/CustomAlert';
 
 type AuthStep = 'EMAIL' | 'OTP' | 'PASSWORD';
@@ -20,6 +20,7 @@ const { width } = Dimensions.get('window');
 
 export default function AuthScreen() {
     const { setIsLoggedIn } = useAuth();
+    const { colors, isDark } = useTheme();
     const router = useRouter();
     const params = useLocalSearchParams();
     const insets = useSafeAreaInsets();
@@ -299,10 +300,10 @@ export default function AuthScreen() {
     };
 
     return (
-        <View style={styles.container}>
-            <StatusBar style="light" />
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
+            <StatusBar style={isDark ? 'light' : 'dark'} />
 
-            <View style={styles.header}>
+            <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
                 <TouchableOpacity
                     onPress={() => {
                         if (step === 'OTP' || step === 'PASSWORD') {
@@ -318,9 +319,9 @@ export default function AuthScreen() {
                     }}
                     style={styles.backButton}
                 >
-                    <ChevronLeft color="#FFF" size={28} />
+                    <ChevronLeft color={colors.text} size={28} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>ShowGo</Text>
+                <Text style={[styles.headerTitle, { color: colors.text }]}>ShowGo</Text>
                 <View style={{ width: 28 }} />
             </View>
 
@@ -339,17 +340,17 @@ export default function AuthScreen() {
                         </LinearGradient>
                     </View>
 
-                    <Text style={styles.welcomeTitle}>
+                    <Text style={[styles.welcomeTitle, { color: colors.text }]}>
                         {mode === 'signin' ? 'Welcome Back' : 'Get Started'}
                     </Text>
 
                     {/* Tabs */}
-                    <View style={styles.tabContainer}>
+                    <View style={[styles.tabContainer, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]}>
                         <TouchableOpacity style={[styles.tab, mode === 'signin' && styles.activeTab]} onPress={() => toggleMode('signin')}>
-                            <Text style={[styles.tabText, mode === 'signin' && styles.activeTabText]}>Sign In</Text>
+                            <Text style={[styles.tabText, mode === 'signin' ? styles.activeTabText : { color: colors.textSecondary }]}>Sign In</Text>
                         </TouchableOpacity>
                         <TouchableOpacity style={[styles.tab, mode === 'signup' && styles.activeTab]} onPress={() => toggleMode('signup')}>
-                            <Text style={[styles.tabText, mode === 'signup' && styles.activeTabText]}>Sign Up</Text>
+                            <Text style={[styles.tabText, mode === 'signup' ? styles.activeTabText : { color: colors.textSecondary }]}>Sign Up</Text>
                         </TouchableOpacity>
                     </View>
 
@@ -512,7 +513,7 @@ export default function AuthScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#0B0B15' },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: width * 0.05, paddingTop: 60, paddingBottom: 20 },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: width * 0.05, paddingBottom: 20 },
     backButton: { padding: 4 },
     headerTitle: { color: '#FFF', fontSize: 18, fontWeight: '600' },
     scrollContent: { paddingHorizontal: width * 0.06, paddingBottom: 40 },

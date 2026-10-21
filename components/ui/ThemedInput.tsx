@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, TextInput, StyleSheet, TextInputProps } from 'react-native';
 import { LucideIcon } from 'lucide-react-native';
+import { useTheme } from '../../context/ThemeContext';
 
 interface ThemedInputProps extends TextInputProps {
     icon?: LucideIcon;
@@ -9,18 +10,20 @@ interface ThemedInputProps extends TextInputProps {
 }
 
 export const ThemedInput = ({ icon: Icon, rightIcon: RightIcon, onRightIconPress, style, ...props }: ThemedInputProps) => {
+    const { colors } = useTheme();
+
     return (
-        <View style={styles.container}>
-            {Icon && <Icon size={20} color="#9CA3AF" style={styles.icon} />}
+        <View style={[styles.container, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+            {Icon && <Icon size={20} color={colors.textSecondary} style={styles.icon} />}
             <TextInput
-                style={[styles.input, style]}
-                placeholderTextColor="#6B7280"
+                style={[styles.input, { color: colors.text }, style]}
+                placeholderTextColor={colors.textMuted}
                 {...props}
             />
             {RightIcon && (
                 <RightIcon
                     size={20}
-                    color="#9CA3AF"
+                    color={colors.textSecondary}
                     onPress={onRightIconPress}
                     style={styles.rightIcon}
                 />

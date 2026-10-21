@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity, ActivityIndicator, Image, Dimensions } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Search as SearchIcon, Star } from 'lucide-react-native';
+import { Search as SearchIcon, Star, ChevronRight, X } from 'lucide-react-native';
 import * as SecureStore from 'expo-secure-store';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { endpoints } from '../../config/api';
+import { useTheme } from '../../context/ThemeContext';
 
 const { width } = Dimensions.get('window');
 
@@ -16,10 +17,13 @@ export default function SearchScreen() {
     const [movies, setMovies] = useState<any[]>([]);
     const [filteredMovies, setFilteredMovies] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const { colors, isDark } = useTheme();
 
-    useEffect(() => {
-        fetchMovies();
-    }, []);
+    useFocusEffect(
+        useCallback(() => {
+            fetchMovies();
+        }, [])
+    );
 
     const fetchMovies = async () => {
         try {
@@ -53,82 +57,102 @@ export default function SearchScreen() {
 
     const filterMovies = () => {
         let result = movies;
-        if (query) {
+        if (query.trim()) {
             result = result.filter(m => m.title.toLowerCase().includes(query.toLowerCase()));
         }
         setFilteredMovies(result);
     };
 
     return (
-        <View style={[styles.container, { paddingTop: insets.top + 10 }]}>
-            <StatusBar style="light" />
-
-            <View style={styles.header}>
-                <View style={{ width: 24 }} />
-                <Text style={styles.headerTitle}>Search Movies</Text>
-                <View style={{ width: 24 }} />
-            </View>
-
-            <View style={styles.searchContainer}>
-                <SearchIcon color="#A78BFA" size={20} />
-                <TextInput
-                    style={styles.searchInput}
-                    placeholder="Search movies, genre..."
-                    placeholderTextColor="#9CA3AF"
-                    value={query}
-                    onChangeText={setQuery}
-                />
-            </View>
-
-            <View style={styles.resultsHeader}>
-                <Text style={styles.resultsTitle}>Results</Text>
-                <Text style={styles.resultsCount}>{filteredMovies.length} Found</Text>
-            </View>
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
+            <StatusBar style={isDark ? 'light' : 'dark'} />
 
             {loading ? (
-                <View style={styles.loadingContainer}>
-                    <ActivityIndicator color="#8A2BE2" />
+                <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
+                    <ActivityIndicator size="large" color="#8A2BE2" />
                 </View>
             ) : (
-                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.resultsList}>
-                    {filteredMovies.map(movie => (
-                        <TouchableOpacity key={movie.id} onPress={() => router.push(`/movie/${movie.id}`)}>
-                            <View style={styles.resultCard}>
-                                {/* Left Info Column */}
-                                <View style={styles.info}>
-                                    <View style={styles.tagRow}>
-                                        <View style={styles.qualityTag}>
-                                            <Text style={styles.qualityText}>{movie.available_technologies && movie.available_technologies.length > 0 ? movie.available_technologies[0] : 'IMAX'}</Text>
-                                        </View>
-                                        <Text style={styles.duration}>• {Math.floor(movie.duration_minutes / 60)}h {movie.duration_minutes % 60}m</Text>
-                                    </View>
+                <ScrollView 
+                    showsVerticalScrollIndicator={false} 
+                    contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 10 }]}
+                    keyboardShouldPersistTaps="handled"
+                >
+                    {/* Search Title & Search Bar move seamlessly with results */}
+                    <View style={styles.header}>
+                        <Text style={[styles.headerTitle, { color: colors.text }]}>Search Movies</Text>
+                    </View>
 
-                                    <Text style={styles.title} numberOfLines={2}>{movie.title}</Text>
+                    <View style={[styles.searchContainer, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+                        <SearchIcon color="#8A2BE2" size={18} />
+                        <TextInput
+                            style={[styles.searchInput, { color: colors.text }]}
+                            placeholder="Search movies, genre..."
+                            placeholderTextColor={colors.textMuted}
+                            value={query}
+                            onChangeText={setQuery}
+                            autoCapitalize="none"
+                            clearButtonMode="while-editing"
+                        />
+                        {query.length > 0 && (
+                            <TouchableOpacity onPress={() => setQuery('')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                                <X color={colors.textSecondary} size={16} />
+                            </TouchableOpacity>
+                        )}
+                    </View>
 
-                                    <View style={styles.ratingRow}>
-                                        <Star color="#FACC15" size={14} fill="#FACC14" />
-                                        <Text style={styles.ratingText}>{movie.rating ? movie.rating.toFixed(1) : "0.0"}</Text>
-                                    </View>
-
-                                    <TouchableOpacity style={styles.bookButton} onPress={() => router.push(`/movie/${movie.id}`)}>
-                                        <Text style={styles.bookButtonText}>Book Now</Text>
-                                    </TouchableOpacity>
-                                </View>
-
-                                {/* Right Image Column */}
+                    {/* Results list flowing directly under search bar, scrolling together */}
+                    <View style={styles.resultsList}>
+                        {filteredMovies.map(movie => (
+                            <TouchableOpacity 
+                                key={movie.id} 
+                                style={[styles.movieRow, { borderBottomColor: colors.border }]}
+                                onPress={() => router.push(`/movie/${movie.id}`)}
+                                activeOpacity={0.7}
+                            >
+                                {/* Left Poster Thumbnail */}
                                 <Image
                                     source={{ uri: movie.poster_url || 'https://via.placeholder.com/150' }}
                                     style={styles.poster}
                                     resizeMode="cover"
                                 />
+
+                                {/* Middle Details */}
+                                <View style={styles.info}>
+                                    <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
+                                        {movie.title}
+                                    </Text>
+
+                                    <Text style={[styles.genre, { color: colors.textSecondary }]} numberOfLines={1}>
+                                        {movie.genre || 'Action'} • {Math.floor((movie.duration_minutes || 120) / 60)}h {(movie.duration_minutes || 120) % 60}m
+                                    </Text>
+
+                                    <View style={styles.ratingRow}>
+                                        <Star color="#FACC15" size={13} fill="#FACC14" />
+                                        <Text style={[styles.ratingText, { color: colors.text }]}>
+                                            {movie.rating ? movie.rating.toFixed(1) : "0.0"}
+                                        </Text>
+                                        {movie.available_technologies && movie.available_technologies.length > 0 && (
+                                            <Text style={[styles.techPill, { color: '#8A2BE2' }]}>
+                                                • {movie.available_technologies[0]}
+                                            </Text>
+                                        )}
+                                    </View>
+                                </View>
+
+                                {/* Right Arrow */}
+                                <ChevronRight color={colors.textSecondary} size={18} />
+                            </TouchableOpacity>
+                        ))}
+
+                        {filteredMovies.length === 0 && !loading && (
+                            <View style={styles.emptyContainer}>
+                                <SearchIcon color={colors.textMuted} size={40} />
+                                <Text style={[styles.emptyText, { color: colors.textMuted }]}>
+                                    No movies found matching "{query}"
+                                </Text>
                             </View>
-                        </TouchableOpacity>
-                    ))}
-                    {filteredMovies.length === 0 && !loading && (
-                        <View style={{ alignItems: 'center', marginTop: 40 }}>
-                            <Text style={{ color: '#6B7280' }}>No movies found matching your search.</Text>
-                        </View>
-                    )}
+                        )}
+                    </View>
                 </ScrollView>
             )}
         </View>
@@ -136,55 +160,95 @@ export default function SearchScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#0B0B15' },
+    container: { flex: 1 },
     loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: width * 0.05, marginBottom: 20 },
-    headerTitle: { color: '#FFF', fontSize: 24, fontWeight: 'bold' },
+
+    scrollContent: {
+        paddingBottom: 120,
+    },
+
+    header: { 
+        paddingHorizontal: 20, 
+        marginBottom: 12 
+    },
+    headerTitle: { 
+        fontSize: 24, 
+        fontWeight: 'bold', 
+        letterSpacing: -0.3 
+    },
 
     searchContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#1F1F2E',
-        borderRadius: 16,
-        paddingHorizontal: 16,
-        height: 55,
-        marginHorizontal: width * 0.05,
-        marginBottom: 24,
+        borderRadius: 14,
+        paddingHorizontal: 14,
+        height: 48,
+        marginHorizontal: 20,
+        marginBottom: 16,
         borderWidth: 1,
-        borderColor: '#4C1D95'
     },
-    searchInput: { flex: 1, color: '#FFF', fontSize: 16, marginLeft: 10 },
-
-    resultsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: width * 0.05, marginBottom: 16 },
-    resultsTitle: { color: '#FFF', fontSize: 20, fontWeight: 'bold' },
-    resultsCount: { color: '#8A2BE2', fontSize: 14, fontWeight: '600' },
-
-    resultsList: { paddingHorizontal: width * 0.05, paddingBottom: 120 },
-
-    resultCard: {
-        flexDirection: 'row', backgroundColor: '#13131A', borderRadius: 20, padding: 16, marginBottom: 20,
-        borderWidth: 1, borderColor: '#1F1F2E'
+    searchInput: { 
+        flex: 1, 
+        fontSize: 15, 
+        marginLeft: 10,
+        paddingVertical: 0,
     },
-    info: { flex: 1, marginRight: 16, justifyContent: 'space-between', paddingVertical: 4 },
 
-    tagRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-    qualityTag: { backgroundColor: '#8A2BE2', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, marginRight: 8 },
-    qualityText: { color: '#FFF', fontSize: 10, fontWeight: 'bold' },
-    duration: { color: '#6B7280', fontSize: 12, fontWeight: '500' },
-
-    title: { color: '#FFF', fontSize: 20, fontWeight: 'bold', lineHeight: 26, marginBottom: 4 },
-    genre: { color: '#9CA3AF', fontSize: 13, marginBottom: 12 },
-
-    ratingRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, gap: 4 },
-    ratingText: { color: '#FACC15', fontSize: 14, fontWeight: 'bold' },
-
-    bookButton: {
-        backgroundColor: '#8A2BE2', paddingVertical: 12, paddingHorizontal: 20,
-        borderRadius: 12, alignItems: 'center', alignSelf: 'flex-start',
-        width: '100%',
-        shadowColor: '#8A2BE2', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8
+    resultsList: { 
+        paddingHorizontal: 20, 
+        paddingBottom: 100 
     },
-    bookButtonText: { color: '#FFF', fontWeight: 'bold', fontSize: 14 },
 
-    poster: { width: 110, height: 160, borderRadius: 12 },
+    // Clean, streamlined list row without bulky card boxes
+    movieRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 12,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+    },
+    poster: { 
+        width: 58, 
+        height: 80, 
+        borderRadius: 8,
+        backgroundColor: '#E5E7EB',
+    },
+    info: { 
+        flex: 1, 
+        marginLeft: 14, 
+        justifyContent: 'center' 
+    },
+    title: { 
+        fontSize: 16, 
+        fontWeight: '700', 
+        marginBottom: 4 
+    },
+    genre: { 
+        fontSize: 13, 
+        marginBottom: 6 
+    },
+    ratingRow: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        gap: 4 
+    },
+    ratingText: { 
+        fontSize: 13, 
+        fontWeight: '600' 
+    },
+    techPill: {
+        fontSize: 11,
+        fontWeight: '600',
+        marginLeft: 4,
+    },
+
+    emptyContainer: { 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        marginTop: 60,
+        gap: 12,
+    },
+    emptyText: { 
+        fontSize: 14,
+        textAlign: 'center',
+    },
 });

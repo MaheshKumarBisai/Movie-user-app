@@ -1,8 +1,10 @@
 import { useEffect, useCallback } from 'react';
+import { Platform, StatusBar as RNStatusBar } from 'react-native';
 import { Stack, useRouter, SplashScreen, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../context/AuthContext';
+import { ThemeProvider, useTheme } from '../context/ThemeContext';
 import { registerForPushNotificationsAsync, savePushToken } from '../config/notifications';
 
 // Keep splash screen visible while checking auth
@@ -10,6 +12,7 @@ SplashScreen.preventAutoHideAsync();
 
 function RootLayoutNav() {
     const { isLoggedIn, loading } = useAuth();
+    const { colors, theme } = useTheme();
     const segments = useSegments();
     const router = useRouter();
 
@@ -51,6 +54,10 @@ function RootLayoutNav() {
 
     useEffect(() => {
         onLayoutRootView();
+        if (Platform.OS === 'android') {
+            RNStatusBar.setTranslucent(true);
+            RNStatusBar.setBackgroundColor('transparent');
+        }
     }, [onLayoutRootView]);
 
     if (loading) {
@@ -58,17 +65,40 @@ function RootLayoutNav() {
     }
 
     return (
-        <Stack screenOptions={{ headerShown: false, animation: 'none' }} />
+        <>
+            <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
+            <Stack screenOptions={{ 
+                headerShown: false, 
+                animation: 'fade_from_bottom',
+                animationDuration: 250,
+                contentStyle: { backgroundColor: colors.background }
+            }}>
+                <Stack.Screen name="(tabs)" options={{ animation: 'fade_from_bottom' }} />
+                <Stack.Screen name="index" options={{ animation: 'fade_from_bottom' }} />
+                <Stack.Screen name="auth" options={{ animation: 'fade_from_bottom' }} />
+                <Stack.Screen name="movie/[id]" options={{ animation: 'fade_from_bottom' }} />
+                <Stack.Screen name="movie/[id]/select-cinema" options={{ animation: 'fade_from_bottom' }} />
+                <Stack.Screen name="movie/[id]/select-seats" options={{ animation: 'fade_from_bottom' }} />
+                <Stack.Screen name="movie/[id]/checkout" options={{ animation: 'fade_from_bottom' }} />
+                <Stack.Screen name="location" options={{ animation: 'fade_from_bottom' }} />
+                <Stack.Screen name="my-bookings" options={{ animation: 'fade_from_bottom' }} />
+                <Stack.Screen name="my-reviews" options={{ animation: 'fade_from_bottom' }} />
+                <Stack.Screen name="notifications" options={{ animation: 'fade_from_bottom' }} />
+                <Stack.Screen name="offers" options={{ animation: 'fade_from_bottom' }} />
+                <Stack.Screen name="ticket/[id]" options={{ animation: 'fade_from_bottom' }} />
+            </Stack>
+        </>
     );
 }
 
 export default function RootLayout() {
     return (
         <SafeAreaProvider>
-            <AuthProvider>
-                <StatusBar style="light" />
-                <RootLayoutNav />
-            </AuthProvider>
+            <ThemeProvider>
+                <AuthProvider>
+                    <RootLayoutNav />
+                </AuthProvider>
+            </ThemeProvider>
         </SafeAreaProvider>
     );
 }

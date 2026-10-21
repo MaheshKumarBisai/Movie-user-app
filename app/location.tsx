@@ -1,17 +1,82 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Image } from 'react-native';
+import React, { useEffect, useState, useMemo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { MapPin, Search, Navigation, ChevronRight } from 'lucide-react-native';
+import { Search, Navigation, ChevronRight, ArrowLeft } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as SecureStore from 'expo-secure-store';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { endpoints } from '../config/api';
+import { useTheme } from '../context/ThemeContext';
+import { getCityLandmarkIcon } from '../components/LandmarkIcons';
+
+// Famous cities with dedicated landmark icons
+const FAMOUS_CITIES = [
+    'Hyderabad',
+    'Visakhapatnam',
+    'Vijayawada',
+    'Bangalore',
+    'Mumbai',
+    'Chennai',
+    'Delhi',
+    'Kolkata',
+];
+
+// Comprehensive list of other cities (AP, Telangana, and major hubs)
+const ALL_OTHER_CITIES = [
+    'Anantapur',
+    'Bhimavaram',
+    'Chittoor',
+    'Coimbatore',
+    'Dharmavaram',
+    'Eluru',
+    'Gudivada',
+    'Guntakal',
+    'Guntur',
+    'Hindupur',
+    'Kadapa',
+    'Kakinada',
+    'Karimnagar',
+    'Khammam',
+    'Kochi',
+    'Kurnool',
+    'Machilipatnam',
+    'Madanapalle',
+    'Mangalagiri',
+    'Narasaraopet',
+    'Nellore',
+    'Nizamabad',
+    'Ongole',
+    'Proddatur',
+    'Pune',
+    'Rajahmundry',
+    'Srikakulam',
+    'Tadipatri',
+    'Tenali',
+    'Tirupati',
+    'Vizianagaram',
+    'Warangal',
+];
+
+// Helper to normalize city names (deduplicate variations like "Bangalore" vs "Banglore")
+const normalizeCityName = (city: string): string => {
+    const trimmed = city.trim();
+    const lower = trimmed.toLowerCase();
+    if (lower === 'banglore' || lower === 'bangalore' || lower === 'bengaluru') return 'Bangalore';
+    if (lower === 'vizag' || lower === 'visakhapatnam') return 'Visakhapatnam';
+    if (lower === 'secunderabad' || lower === 'hyderabad') return 'Hyderabad';
+    if (lower === 'bombay' || lower === 'mumbai') return 'Mumbai';
+    if (lower === 'madras' || lower === 'chennai') return 'Chennai';
+    if (lower === 'calcutta' || lower === 'kolkata') return 'Kolkata';
+    // Title case
+    return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+};
 
 export default function LocationScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
-    const [locations, setLocations] = useState<string[]>([]);
+    const { colors, isDark } = useTheme();
+    const [backendLocations, setBackendLocations] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
 
@@ -23,8 +88,9 @@ export default function LocationScreen() {
         try {
             const response = await fetch(endpoints.locations);
             const data = await response.json();
-            // Ensure data is array of strings
-            setLocations(Array.isArray(data) ? data : []);
+            if (Array.isArray(data)) {
+                setBackendLocations(data);
+            }
         } catch (error) {
             console.error("Failed to fetch locations", error);
         } finally {
@@ -33,109 +99,296 @@ export default function LocationScreen() {
     };
 
     const handleSelectLocation = async (city: string) => {
-        await SecureStore.setItemAsync('user_location', city);
+        const normalized = normalizeCityName(city);
+        await SecureStore.setItemAsync('user_location', normalized);
         router.replace('/(tabs)/home');
     };
 
-    const filteredLocations = locations.filter(loc =>
-        loc.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    // Combine and deduplicate all cities
+    const { popularCities, otherCities } = useMemo(() => {
+        // Collect backend cities normalized
+        const normalizedBackend = backendLocations.map(normalizeCityName);
 
-    // Suggest some popular cities if list is empty or for UI demo
-    const popularCities = ['Visakhapatnam', 'Vijayawada', 'Hyderabad', 'Bangalore', 'Chennai', 'Mumbai'];
-    const displayLocations = locations.length > 0 ? filteredLocations : popularCities.filter(c => c.toLowerCase().includes(searchQuery.toLowerCase()));
+        // Normalize famous cities
+        const famousSet = new Set(FAMOUS_CITIES);
+
+        // Merge all other cities with any extra backend cities
+        const otherSet = new Set<string>();
+        ALL_OTHER_CITIES.forEach(c => {
+            const norm = normalizeCityName(c);
+            if (!famousSet.has(norm)) otherSet.add(norm);
+        });
+        normalizedBackend.forEach(c => {
+            if (!famousSet.has(c)) otherSet.add(c);
+        });
+
+        const sortedOther = Array.from(otherSet).sort((a, b) => a.localeCompare(b));
+
+        const query = searchQuery.trim().toLowerCase();
+        if (!query) {
+            return {
+                popularCities: FAMOUS_CITIES,
+                otherCities: sortedOther
+            };
+        }
+
+        return {
+            popularCities: FAMOUS_CITIES.filter(c => c.toLowerCase().includes(query)),
+            otherCities: sortedOther.filter(c => c.toLowerCase().includes(query))
+        };
+    }, [backendLocations, searchQuery]);
 
     return (
-        <View style={[styles.container, { paddingTop: insets.top + 10 }]}>
-            <StatusBar style="light" />
+        <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top + 8 }]}>
+            <StatusBar style={isDark ? 'light' : 'dark'} />
 
+            {/* Header */}
             <View style={styles.header}>
-                <Text style={styles.headerTitle}>Select Location</Text>
+                <TouchableOpacity
+                    onPress={() => router.back()}
+                    style={[styles.backBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                >
+                    <ArrowLeft color={colors.text} size={20} />
+                </TouchableOpacity>
+                <Text style={[styles.headerTitle, { color: colors.text }]}>Select Location</Text>
+                <View style={{ width: 36 }} />
             </View>
 
-            <View style={styles.searchContainer}>
-                <Search color="#9CA3AF" size={20} style={{ marginRight: 8 }} />
+            {/* Search Bar */}
+            <View style={[styles.searchContainer, { backgroundColor: isDark ? '#1A1A24' : '#F1F5F9' }]}>
+                <Search color={colors.textSecondary} size={18} style={{ marginRight: 10 }} />
                 <TextInput
-                    style={styles.searchInput}
+                    style={[styles.searchInput, { color: colors.text }]}
                     placeholder="Search for a city..."
-                    placeholderTextColor="#6B7280"
+                    placeholderTextColor={colors.textSecondary}
                     value={searchQuery}
                     onChangeText={setSearchQuery}
+                    autoCapitalize="words"
                 />
             </View>
 
-            <TouchableOpacity style={styles.currentLocationButton} onPress={() => handleSelectLocation('Visakhapatnam')}>
-                <LinearGradient
-                    colors={['#8A2BE2', '#4B0082']}
-                    style={styles.locationIconBox}
-                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+                {/* Use Current Location */}
+                <TouchableOpacity
+                    style={[styles.currentLocationButton, { backgroundColor: colors.surface }]}
+                    onPress={() => handleSelectLocation('Visakhapatnam')}
+                    activeOpacity={0.8}
                 >
-                    <Navigation color="#FFF" size={20} />
-                </LinearGradient>
-                <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={styles.locationTitle}>Use Current Location</Text>
-                    <Text style={styles.locationSubtitle}>Enable GPS for better accuracy</Text>
-                </View>
-                <ChevronRight color="#4B5563" size={20} />
-            </TouchableOpacity>
+                    <LinearGradient
+                        colors={['#8A2BE2', '#6D28D9']}
+                        style={styles.locationIconBox}
+                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                    >
+                        <Navigation color="#FFF" size={18} />
+                    </LinearGradient>
+                    <View style={{ flex: 1, marginLeft: 14 }}>
+                        <Text style={[styles.locationTitle, { color: colors.text }]}>Use Current Location</Text>
+                        <Text style={[styles.locationSubtitle, { color: colors.textSecondary }]}>Enable GPS for better accuracy</Text>
+                    </View>
+                    <ChevronRight color={colors.textSecondary} size={18} />
+                </TouchableOpacity>
 
-            <Text style={styles.sectionTitle}>Popular Cities</Text>
+                {loading ? (
+                    <ActivityIndicator color="#8A2BE2" style={{ marginTop: 30 }} />
+                ) : (
+                    <>
+                        {/* Popular Cities with Famous Landmark Icons */}
+                        {popularCities.length > 0 && (
+                            <View style={styles.section}>
+                                <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>POPULAR CITIES</Text>
+                                <View style={styles.popularGrid}>
+                                    {popularCities.map((city) => (
+                                        <TouchableOpacity
+                                            key={city}
+                                            style={styles.popularCard}
+                                            onPress={() => handleSelectLocation(city)}
+                                            activeOpacity={0.7}
+                                        >
+                                            <LinearGradient
+                                                colors={isDark ? ['#241C35', '#1B1629'] : ['#F5F3FF', '#EDE9FE']}
+                                                style={styles.popularIconBox}
+                                            >
+                                                {getCityLandmarkIcon(city, 40, '#8A2BE2')}
+                                            </LinearGradient>
+                                            <Text
+                                                style={[styles.popularCityName, { color: colors.text }]}
+                                                numberOfLines={1}
+                                            >
+                                                {city}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            </View>
+                        )}
 
-            {loading ? (
-                <ActivityIndicator color="#8A2BE2" style={{ marginTop: 20 }} />
-            ) : (
-                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.gridContainer}>
-                    {displayLocations.map((city, index) => (
-                        <TouchableOpacity
-                            key={index}
-                            style={styles.cityCard}
-                            onPress={() => handleSelectLocation(city)}
-                        >
-                            {/* Placeholder Images for cities - using a consistent gradient or abstract for now */}
-                            <LinearGradient
-                                colors={['#2D2D3F', '#1F1F2E']}
-                                style={styles.cityImagePlaceholder}
-                            >
-                                <MapPin color="#8A2BE2" size={24} />
-                            </LinearGradient>
-                            <Text style={styles.cityName}>{city}</Text>
-                        </TouchableOpacity>
-                    ))}
-                </ScrollView>
-            )}
+                        {/* Other Cities List without Outline Stroke */}
+                        {otherCities.length > 0 && (
+                            <View style={styles.section}>
+                                <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+                                    {searchQuery ? 'SEARCH RESULTS' : 'OTHER CITIES'}
+                                </Text>
+                                <View style={[styles.otherCitiesContainer, { backgroundColor: colors.surface }]}>
+                                    {otherCities.map((city, index) => (
+                                        <TouchableOpacity
+                                            key={city}
+                                            style={[
+                                                styles.otherCityItem,
+                                                index < otherCities.length - 1 && {
+                                                    borderBottomWidth: StyleSheet.hairlineWidth,
+                                                    borderBottomColor: colors.border
+                                                }
+                                            ]}
+                                            onPress={() => handleSelectLocation(city)}
+                                            activeOpacity={0.6}
+                                        >
+                                            <Text style={[styles.otherCityText, { color: colors.text }]}>{city}</Text>
+                                            <ChevronRight size={16} color={colors.textSecondary} />
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            </View>
+                        )}
+
+                        {popularCities.length === 0 && otherCities.length === 0 && (
+                            <View style={styles.emptyContainer}>
+                                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                                    No cities found matching "{searchQuery}"
+                                </Text>
+                            </View>
+                        )}
+                    </>
+                )}
+            </ScrollView>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#0B0B15' },
-    header: { paddingHorizontal: 20, marginBottom: 20, alignItems: 'center' },
-    headerTitle: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },
+
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        marginBottom: 16,
+    },
+    backBtn: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+    },
+    headerTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        textAlign: 'center',
+    },
 
     searchContainer: {
-        flexDirection: 'row', alignItems: 'center', backgroundColor: '#1F1F2E',
-        borderRadius: 12, marginHorizontal: 20, paddingHorizontal: 16, height: 50, marginBottom: 24,
-        borderWidth: 1, borderColor: '#2D2D3F'
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderRadius: 14,
+        marginHorizontal: 20,
+        paddingHorizontal: 16,
+        height: 48,
+        marginBottom: 20,
     },
-    searchInput: { flex: 1, color: '#FFF', fontSize: 16 },
+    searchInput: {
+        flex: 1,
+        fontSize: 15,
+    },
+
+    scrollContent: {
+        paddingHorizontal: 20,
+        paddingBottom: 40,
+    },
 
     currentLocationButton: {
-        flexDirection: 'row', alignItems: 'center', backgroundColor: '#1F1F2E',
-        marginHorizontal: 20, padding: 16, borderRadius: 16, marginBottom: 32,
-        borderWidth: 1, borderColor: '#2D2D3F'
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 14,
+        borderRadius: 16,
+        marginBottom: 24,
     },
-    locationIconBox: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-    locationTitle: { color: '#FFF', fontSize: 16, fontWeight: '600' },
-    locationSubtitle: { color: '#9CA3AF', fontSize: 12 },
-
-    sectionTitle: { color: '#9CA3AF', fontSize: 14, fontWeight: '600', marginLeft: 20, marginBottom: 16, letterSpacing: 1 },
-
-    gridContainer: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 12 },
-    cityCard: { width: '33.33%', padding: 8, alignItems: 'center', marginBottom: 16 },
-    cityImagePlaceholder: {
-        width: '100%', aspectRatio: 1, borderRadius: 16, marginBottom: 8,
-        alignItems: 'center', justifyContent: 'center',
-        borderWidth: 1, borderColor: '#2D2D3F'
+    locationIconBox: {
+        width: 38,
+        height: 38,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
-    cityName: { color: '#E5E7EB', fontSize: 14, fontWeight: '500', textAlign: 'center' },
+    locationTitle: {
+        fontSize: 15,
+        fontWeight: '600',
+    },
+    locationSubtitle: {
+        fontSize: 12,
+        marginTop: 2,
+    },
+
+    section: {
+        marginBottom: 28,
+    },
+    sectionTitle: {
+        fontSize: 12,
+        fontWeight: '700',
+        letterSpacing: 1.2,
+        marginBottom: 14,
+    },
+
+    // Popular Cities Grid (clean cards with landmark icons, NO outline stroke)
+    popularGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        marginHorizontal: -6,
+    },
+    popularCard: {
+        width: '33.33%',
+        paddingHorizontal: 6,
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    popularIconBox: {
+        width: '100%',
+        aspectRatio: 1.1,
+        borderRadius: 18,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 8,
+    },
+    popularCityName: {
+        fontSize: 13,
+        fontWeight: '600',
+        textAlign: 'center',
+    },
+
+    // Other Cities List (vertical list, NO outline stroke)
+    otherCitiesContainer: {
+        borderRadius: 16,
+        overflow: 'hidden',
+    },
+    otherCityItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+    },
+    otherCityText: {
+        fontSize: 15,
+        fontWeight: '500',
+    },
+
+    emptyContainer: {
+        alignItems: 'center',
+        paddingVertical: 40,
+    },
+    emptyText: {
+        fontSize: 14,
+        textAlign: 'center',
+    },
 });

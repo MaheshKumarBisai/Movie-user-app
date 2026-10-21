@@ -28,7 +28,15 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#000000"
       },
-      "package": "com.maheshb.frontend"
+      "package": "com.maheshb.frontend",
+      "edgeToEdgeEnabled": true
+    },
+    "androidStatusBar": {
+      "translucent": true,
+      "backgroundColor": "#00000000"
+    },
+    "androidNavigationBar": {
+      "backgroundColor": "#00000000"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -46,7 +54,10 @@
             "usesCleartextTraffic": true
           }
         }
-      ]
+      ],
+      "expo-image",
+      "expo-sharing",
+      "expo-status-bar"
     ],
     "extra": {
       "router": {},

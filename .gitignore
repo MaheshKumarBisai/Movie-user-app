@@ -30,9 +30,14 @@ npm-debug.*
 yarn-debug.*
 yarn-error.*
 
-# macOS
+# macOS & OS
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
 Thumbs.db
+ehthumbs.db
 
 # Environment variables (contains secrets like API URLs)
 .env

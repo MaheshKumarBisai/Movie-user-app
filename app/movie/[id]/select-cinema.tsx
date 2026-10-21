@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, FlatList, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, FlatList, TextInput, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ArrowLeft, MapPin, SlidersHorizontal, Search } from 'lucide-react-native';
+import { ArrowLeft, MapPin, Search } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as SecureStore from 'expo-secure-store';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { endpoints } from '../../../config/api';
+import { useTheme } from '../../../context/ThemeContext';
 
 export default function SelectCinemaScreen() {
+    const { colors, isDark } = useTheme();
+    const insets = useSafeAreaInsets();
     const params = useLocalSearchParams();
     const { id, language } = params;
     const router = useRouter();
@@ -16,6 +20,7 @@ export default function SelectCinemaScreen() {
     const [theatres, setTheatres] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [location, setLocation] = useState<string>('Select Location');
+    const [searchQuery, setSearchQuery] = useState<string>('');
 
     useEffect(() => {
         generateDates();
@@ -101,36 +106,45 @@ export default function SelectCinemaScreen() {
         return uniqueShows.sort((a, b) => new Date(a.show_time).getTime() - new Date(b.show_time).getTime());
     };
 
+    if (loading) {
+        return (
+            <View style={[styles.container, { backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }]}>
+                <StatusBar style={isDark ? "light" : "dark"} />
+                <ActivityIndicator size="large" color="#8A2BE2" />
+            </View>
+        );
+    }
+
     return (
-        <View style={styles.container}>
-            <StatusBar style="light" />
+        <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top + 8 }]}>
+            <StatusBar style={isDark ? "light" : "dark"} />
 
             {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
-                    <ArrowLeft color="#FFF" size={24} />
+                    <ArrowLeft color={colors.text} size={24} />
                 </TouchableOpacity>
                 <View style={{ alignItems: 'center', flex: 1 }}>
-                    <Text style={styles.headerTitle}>Select Cinema</Text>
+                    <Text style={[styles.headerTitle, { color: colors.text }]}>Select Cinema</Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <MapPin color="#6B7280" size={12} />
-                        <Text style={styles.headerSubtitle}> {location}</Text>
+                        <MapPin color="#8A2BE2" size={12} />
+                        <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}> {location}</Text>
                     </View>
                 </View>
-                {/* Empty view to balance the header since we removed the right button */}
                 <View style={{ width: 44 }} />
             </View>
 
             {/* Search Bar */}
             <View style={styles.searchContainer}>
-                <View style={styles.searchBar}>
-                    <Search color="#6B7280" size={20} />
+                <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <Search color="#8A2BE2" size={20} />
                     <TextInput
                         placeholder="Find a movie theater..."
-                        placeholderTextColor="#6B7280"
-                        style={styles.searchInput}
+                        placeholderTextColor={colors.textSecondary}
+                        style={[styles.searchInput, { color: colors.text }]}
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
                     />
-                    <SlidersHorizontal color="#8A2BE2" size={20} />
                 </View>
             </View>
 
@@ -142,17 +156,16 @@ export default function SelectCinemaScreen() {
                         return (
                             <TouchableOpacity
                                 key={index}
-                                style={[styles.dateChip, isSelected && styles.activeDateChip]}
+                                style={[
+                                    styles.dateChip,
+                                    { backgroundColor: colors.surface, borderColor: colors.border },
+                                    isSelected && styles.activeDateChip
+                                ]}
                                 onPress={() => setSelectedDate(item.fullDate)}
                             >
-                                <Text style={[styles.dateLabel, isSelected && styles.activeDateText]}>
+                                <Text style={[styles.dateLabel, { color: isSelected ? '#FFF' : colors.textSecondary }]}>
                                     {item.label || `${item.day}, ${item.month || ''} ${item.date}`}
                                 </Text>
-                                {!item.label && (
-                                    <Text style={[styles.dateSub, isSelected && styles.activeDateText]}>
-                                        {/* Simplified logic since label handles today/tomorrow */}
-                                    </Text>
-                                )}
                             </TouchableOpacity>
                         );
                     })}
@@ -162,26 +175,35 @@ export default function SelectCinemaScreen() {
             {/* Theater List */}
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 }}>
-                    <Text style={styles.sectionTitle}>Nearby Theaters</Text>
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Nearby Theaters</Text>
                 </View>
 
-                {theatres.map((theatre, index) => {
+                {theatres
+                    .filter((theatre: any) =>
+                        !searchQuery.trim() ||
+                        theatre.theatre_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        (theatre.city && theatre.city.toLowerCase().includes(searchQuery.toLowerCase()))
+                    )
+                    .map((theatre, index) => {
                     const availableShows = filterShowsByDate(theatre.shows);
                     if (availableShows.length === 0) return null;
 
                     return (
-                        <View key={index} style={styles.theaterCard}>
+                        <View key={index} style={[styles.theaterCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                             <View style={styles.cardContent}>
-                                <Text style={styles.theaterName}>{theatre.theatre_name}</Text>
+                                <Text style={[styles.theaterName, { color: colors.text }]}>{theatre.theatre_name}</Text>
                                 <Text style={styles.theaterInfo}>{theatre.city !== 'Unknown' ? theatre.city : location}</Text>
 
                                 <View style={styles.amenitiesRow}>
-                                    {/* Show unique technologies from this theatre's shows */}
                                     {Array.from(new Set(theatre.shows.map((s: any) => s.screen_technology).filter(Boolean))).map((tech: any) => (
-                                        <View key={tech} style={styles.amenityTag}><Text style={styles.amenityText}>{tech}</Text></View>
+                                        <View key={tech} style={[styles.amenityTag, { backgroundColor: isDark ? '#1F1F2E' : '#F3E8FF' }]}>
+                                            <Text style={[styles.amenityText, { color: isDark ? '#9CA3AF' : '#8A2BE2' }]}>{tech}</Text>
+                                        </View>
                                     ))}
                                     {theatre.shows.every((s: any) => !s.screen_technology) && (
-                                        <View style={styles.amenityTag}><Text style={styles.amenityText}>Standard</Text></View>
+                                        <View style={[styles.amenityTag, { backgroundColor: isDark ? '#1F1F2E' : '#F3E8FF' }]}>
+                                            <Text style={[styles.amenityText, { color: isDark ? '#9CA3AF' : '#8A2BE2' }]}>Standard</Text>
+                                        </View>
                                     )}
                                 </View>
 
@@ -189,14 +211,14 @@ export default function SelectCinemaScreen() {
                                     {availableShows.map((show: any, idx: number) => (
                                         <TouchableOpacity
                                             key={idx}
-                                            style={styles.timeChip}
+                                            style={[styles.timeChip, { backgroundColor: isDark ? '#13131A' : '#FAF5FF', borderColor: '#8A2BE2' }]}
                                             onPress={() => router.push({
                                                 pathname: `/movie/${id}/select-seats`,
                                                 params: {
                                                     showId: show.show_id,
                                                     theatreName: theatre.theatre_name,
                                                     screenName: show.screen_name,
-                                                    movieTitle: params.title || "Movie Title", // Use passed title
+                                                    movieTitle: params.title || "Movie Title",
                                                     showTime: formatTime(show.show_time),
                                                     showDate: show.show_time,
                                                     poster: params.poster,
@@ -205,7 +227,7 @@ export default function SelectCinemaScreen() {
                                                 }
                                             })}
                                         >
-                                            <Text style={styles.timeText}>{formatTime(show.show_time)}</Text>
+                                            <Text style={[styles.timeText, { color: isDark ? '#FFF' : '#8A2BE2' }]}>{formatTime(show.show_time)}</Text>
                                         </TouchableOpacity>
                                     ))}
                                 </View>
@@ -215,7 +237,7 @@ export default function SelectCinemaScreen() {
                 })}
 
                 {theatres.length === 0 && !loading && (
-                    <Text style={{ color: '#9CA3AF', textAlign: 'center', marginTop: 40 }}>No theaters found.</Text>
+                    <Text style={{ color: colors.textSecondary, textAlign: 'center', marginTop: 40 }}>No theaters found.</Text>
                 )}
             </ScrollView>
         </View>
@@ -223,7 +245,7 @@ export default function SelectCinemaScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#0B0B15', paddingTop: 50 },
+    container: { flex: 1 },
 
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginBottom: 20 },
     iconBtn: { padding: 10, borderRadius: 12 },

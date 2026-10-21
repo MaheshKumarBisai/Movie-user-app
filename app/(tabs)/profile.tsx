@@ -8,12 +8,16 @@ import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { endpoints } from '../../config/api';
+import { uploadImageViaXHR } from '../../utils/upload';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeToggle } from '../../components/ui/ThemeToggle';
 
 const { width, height } = Dimensions.get('window');
 
 export default function ProfileScreen() {
     const { logout } = useAuth();
+    const { colors, isDark } = useTheme();
     const router = useRouter();
     const insets = useSafeAreaInsets();
     const [user, setUser] = useState<any>(null);
@@ -103,30 +107,8 @@ export default function ProfileScreen() {
             const token = await SecureStore.getItemAsync('token');
             if (!token) return;
 
-            // Step 1: Upload image to S3
-            const formData = new FormData();
-            const filename = tempAvatar.split('/').pop() || 'photo.jpg';
-            const match = /\.(\w+)$/.exec(filename);
-            const type = match ? `image/${match[1]}` : 'image/jpeg';
-
-            // @ts-ignore - React Native FormData accepts this format
-            formData.append('file', { uri: tempAvatar, name: filename, type });
-            formData.append('folder', 'profiles/users');
-
-            const uploadResponse = await fetch(endpoints.uploadImage, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                },
-            });
-
-            if (!uploadResponse.ok) {
-                throw new Error('Failed to upload image to S3');
-            }
-
-            const uploadData = await uploadResponse.json();
-            const s3Url = uploadData.url;
+            // Step 1: Upload image to S3 via XHR
+            const s3Url = await uploadImageViaXHR(endpoints.uploadImage, token, tempAvatar, 'profiles/users');
 
             // Step 2: Save S3 URL to profile
             const response = await fetch(endpoints.profile, {
@@ -216,22 +198,30 @@ export default function ProfileScreen() {
     };
 
     return (
-        <ScrollView showsVerticalScrollIndicator={false} style={styles.container} bounces={false}>
-            {/* Header */}
-            <View style={[styles.header, { marginTop: insets.top + 10 }]}>
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
+            <StatusBar style={isDark ? 'light' : 'dark'} />
+            {/* Fixed Header without outline */}
+            <View style={[styles.fixedHeader, { paddingTop: insets.top + 8, backgroundColor: colors.background }]}>
                 <View style={styles.headerContent}>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
-                        <ChevronRight color="#FFF" size={24} style={{ transform: [{ rotate: '180deg' }] }} />
-                        {/* Using Chevron as Back Arrow proxy or use ArrowLeft if imported */}
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Profile</Text>
-                    <TouchableOpacity style={styles.settingsButton} onPress={() => setEditModalVisible(true)}>
-                        <Settings color="#8A2BE2" size={24} />
+                    <Text style={[styles.headerTitle, { color: colors.text }]}>Profile</Text>
+                    <TouchableOpacity 
+                        style={[
+                            styles.settingsButton, 
+                            { 
+                                backgroundColor: colors.surface, 
+                                borderColor: colors.border, 
+                                borderWidth: 1 
+                            }
+                        ]} 
+                        onPress={() => setEditModalVisible(true)}
+                    >
+                        <Settings color="#8A2BE2" size={20} />
                     </TouchableOpacity>
                 </View>
             </View>
 
-            <View style={styles.content}>
+            <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
+                <View style={styles.content}>
                 {/* Profile Section */}
                 <View style={styles.profileSection}>
                     <TouchableOpacity onPress={handlePickImage} style={styles.avatarContainer}>
@@ -241,54 +231,87 @@ export default function ProfileScreen() {
                         >
                             <Image
                                 source={{ uri: user?.avatar_url || 'https://via.placeholder.com/150' }}
-                                style={styles.avatar}
+                                style={[styles.avatar, { borderColor: colors.background }]}
                             />
                         </LinearGradient>
-                        <View style={styles.editBadge}>
+                        <View style={[styles.editBadge, { borderColor: colors.background }]}>
                             <Camera color="#FFF" size={12} />
                         </View>
                     </TouchableOpacity>
 
                     {/* Logic: Show Name if set, else show Email */}
-                    <Text style={styles.userName}>
+                    <Text style={[styles.userName, { color: colors.text }]}>
                         {user?.name && user.name !== 'Movie Buff' ? user.name : user?.email || 'Guest'}
                     </Text>
 
-                    <View style={styles.proBadge}>
+                    <View style={[styles.proBadge, { backgroundColor: isDark ? '#1F1F2E' : '#F3E8FF' }]}>
                         <Text style={styles.proText}>PRO MEMBER</Text>
-                        <Text style={styles.sinceText}> Since 2023</Text>
+                        <Text style={[styles.sinceText, { color: colors.textSecondary }]}> Since 2023</Text>
                     </View>
                 </View>
 
                 {/* Dashboard Buttons */}
                 <View style={styles.dashboard}>
-                    <TouchableOpacity style={styles.dashBtn} onPress={() => router.push('/my-bookings')}>
+                    {/* Theme Appearance Row */}
+                    <ThemeToggle variant="row" />
+
+                    <TouchableOpacity 
+                        style={[
+                            styles.dashBtn, 
+                            { 
+                                backgroundColor: colors.surface, 
+                                borderColor: colors.border,
+                                borderWidth: 1,
+                            }
+                        ]} 
+                        onPress={() => router.push('/my-bookings')}
+                    >
                         <View style={styles.dashIcon}>
-                            <Ticket color="#A78BFA" size={24} />
+                            <Ticket color="#8A2BE2" size={22} />
                         </View>
-                        <Text style={styles.dashText}>My Bookings</Text>
-                        <ChevronRight color="#6B7280" size={20} />
+                        <Text style={[styles.dashText, { color: colors.text }]}>My Bookings</Text>
+                        <ChevronRight color={colors.textSecondary} size={20} />
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={styles.dashBtn} onPress={() => router.push('/my-reviews')}>
+                    <TouchableOpacity 
+                        style={[
+                            styles.dashBtn, 
+                            { 
+                                backgroundColor: colors.surface, 
+                                borderColor: colors.border,
+                                borderWidth: 1,
+                            }
+                        ]} 
+                        onPress={() => router.push('/my-reviews')}
+                    >
                         <View style={styles.dashIcon}>
-                            <Star color="#A78BFA" size={24} />
+                            <Star color="#8A2BE2" size={22} />
                         </View>
-                        <Text style={styles.dashText}>My Reviews</Text>
-                        <ChevronRight color="#6B7280" size={20} />
+                        <Text style={[styles.dashText, { color: colors.text }]}>My Reviews</Text>
+                        <ChevronRight color={colors.textSecondary} size={20} />
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={styles.dashBtn} onPress={() => router.push('/offers')}>
+                    <TouchableOpacity 
+                        style={[
+                            styles.dashBtn, 
+                            { 
+                                backgroundColor: colors.surface, 
+                                borderColor: colors.border,
+                                borderWidth: 1,
+                            }
+                        ]} 
+                        onPress={() => router.push('/offers')}
+                    >
                         <View style={styles.dashIcon}>
-                            <CreditCard color="#A78BFA" size={24} />
+                            <CreditCard color="#8A2BE2" size={22} />
                         </View>
-                        <Text style={styles.dashText}>Offers & Rewards</Text>
-                        <ChevronRight color="#6B7280" size={20} />
+                        <Text style={[styles.dashText, { color: colors.text }]}>Offers & Rewards</Text>
+                        <ChevronRight color={colors.textSecondary} size={20} />
                     </TouchableOpacity>
                 </View>
 
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 30, marginBottom: 16 }}>
-                    <Text style={styles.sectionHeaderNoMargin}>RECENT HISTORY</Text>
+                    <Text style={[styles.sectionHeaderNoMargin, { color: colors.textSecondary }]}>RECENT HISTORY</Text>
                     <TouchableOpacity onPress={() => router.push('/my-bookings')}>
                         <Text style={styles.viewAll}>VIEW ALL</Text>
                     </TouchableOpacity>
@@ -297,22 +320,37 @@ export default function ProfileScreen() {
                 {/* Recent History List */}
                 <View style={styles.historyList}>
                     {recentBookings.map((booking: any) => (
-                        <View key={booking.id} style={styles.historyCard}>
+                        <View 
+                            key={booking.id} 
+                            style={[
+                                styles.historyCard, 
+                                { 
+                                    backgroundColor: colors.surface, 
+                                    borderColor: colors.border,
+                                    borderWidth: 1,
+                                    shadowColor: '#000',
+                                    shadowOffset: { width: 0, height: 1 },
+                                    shadowOpacity: isDark ? 0 : 0.05,
+                                    shadowRadius: 3,
+                                    elevation: isDark ? 0 : 1,
+                                }
+                            ]}
+                        >
                             <Image
                                 source={{ uri: booking.poster_url || 'https://via.placeholder.com/100' }}
                                 style={styles.historyPoster}
                             />
                             <View style={{ flex: 1 }}>
-                                <Text style={styles.historyTitle}>{booking.movie_title || 'Unknown Movie'}</Text>
-                                <Text style={styles.historySubtitle}>{booking.theater_name} • 2 Tickets</Text>
-                                <View style={styles.statusBadge}>
+                                <Text style={[styles.historyTitle, { color: colors.text }]}>{booking.movie_title || 'Unknown Movie'}</Text>
+                                <Text style={[styles.historySubtitle, { color: colors.textSecondary }]}>{booking.theater_name} • 2 Tickets</Text>
+                                <View style={[styles.statusBadge, { backgroundColor: isDark ? 'rgba(138, 43, 226, 0.15)' : '#F3E8FF' }]}>
                                     <Text style={styles.statusText}>COMPLETED</Text>
                                 </View>
                             </View>
                         </View>
                     ))}
                     {recentBookings.length === 0 && (
-                        <Text style={{ color: '#6B7280', textAlign: 'center' }}>No recent bookings</Text>
+                        <Text style={{ color: colors.textMuted, textAlign: 'center' }}>No recent bookings</Text>
                     )}
                 </View>
 
@@ -322,7 +360,8 @@ export default function ProfileScreen() {
                 </TouchableOpacity>
 
                 <View style={{ height: 100 }} />
-            </View>
+                </View>
+            </ScrollView>
 
             {/* Edit Profile Modal */}
             <Modal
@@ -333,46 +372,77 @@ export default function ProfileScreen() {
             >
                 <KeyboardAvoidingView
                     behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                    style={styles.fullScreenModal}
+                    style={[styles.fullScreenModal, { backgroundColor: colors.background }]}
                 >
                     <View style={styles.previewContainer}>
-                        <Text style={styles.previewTitle}>Edit Profile</Text>
+                        <Text style={[styles.previewTitle, { color: colors.text }]}>Edit Profile</Text>
 
                         <View style={{ width: '100%', marginBottom: 20 }}>
-                            <Text style={styles.inputLabel}>Name</Text>
+                            <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Name</Text>
                             <TextInput
-                                style={styles.input}
+                                style={[
+                                    styles.input, 
+                                    { 
+                                        backgroundColor: colors.inputBg, 
+                                        color: colors.text, 
+                                        borderColor: colors.border 
+                                    }
+                                ]}
                                 value={editName}
                                 onChangeText={setEditName}
                                 placeholder="Enter your name"
-                                placeholderTextColor="#6B7280"
+                                placeholderTextColor={colors.textMuted}
                             />
 
-                            <Text style={styles.inputLabel}>Email</Text>
+                            <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Email</Text>
                             <TextInput
-                                style={styles.input}
+                                style={[
+                                    styles.input, 
+                                    { 
+                                        backgroundColor: colors.inputBg, 
+                                        color: colors.text, 
+                                        borderColor: colors.border 
+                                    }
+                                ]}
                                 value={editEmail}
                                 onChangeText={setEditEmail}
                                 placeholder="Enter your email"
-                                placeholderTextColor="#6B7280"
+                                placeholderTextColor={colors.textMuted}
                                 keyboardType="email-address"
                                 autoCapitalize="none"
                             />
 
-                            <Text style={styles.inputLabel}>Mobile Number</Text>
+                            <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Mobile Number</Text>
                             <TextInput
-                                style={styles.input}
+                                style={[
+                                    styles.input, 
+                                    { 
+                                        backgroundColor: colors.inputBg, 
+                                        color: colors.text, 
+                                        borderColor: colors.border 
+                                    }
+                                ]}
                                 value={editMobile}
                                 onChangeText={setEditMobile}
                                 placeholder="Enter your mobile number"
-                                placeholderTextColor="#6B7280"
+                                placeholderTextColor={colors.textMuted}
                                 keyboardType="phone-pad"
                             />
                         </View>
 
                         <View style={styles.previewButtons}>
-                            <TouchableOpacity style={styles.cancelBtn} onPress={() => setEditModalVisible(false)}>
-                                <Text style={styles.cancelText}>Cancel</Text>
+                            <TouchableOpacity 
+                                style={[
+                                    styles.cancelBtn, 
+                                    { 
+                                        backgroundColor: colors.surface, 
+                                        borderColor: colors.border,
+                                        borderWidth: 1,
+                                    }
+                                ]} 
+                                onPress={() => setEditModalVisible(false)}
+                            >
+                                <Text style={[styles.cancelText, { color: colors.text }]}>Cancel</Text>
                             </TouchableOpacity>
                             <TouchableOpacity style={styles.saveBtn} onPress={handleSaveProfile} disabled={saving}>
                                 <Text style={styles.saveText}>{saving ? 'Saving...' : 'Save Changes'}</Text>
@@ -389,9 +459,9 @@ export default function ProfileScreen() {
                 visible={previewModalVisible && !!tempAvatar}
                 onRequestClose={handleCancelPreview}
             >
-                <View style={styles.fullScreenModal}>
+                <View style={[styles.fullScreenModal, { backgroundColor: colors.background }]}>
                     <View style={styles.previewContainer}>
-                        <Text style={styles.previewTitle}>Preview Photo</Text>
+                        <Text style={[styles.previewTitle, { color: colors.text }]}>Preview Photo</Text>
 
                         <Image
                             source={{ uri: tempAvatar || '' }}
@@ -399,8 +469,11 @@ export default function ProfileScreen() {
                         />
 
                         <View style={styles.previewButtons}>
-                            <TouchableOpacity style={styles.cancelBtn} onPress={handleCancelPreview}>
-                                <Text style={styles.cancelText}>Cancel</Text>
+                            <TouchableOpacity 
+                                style={[styles.cancelBtn, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]} 
+                                onPress={handleCancelPreview}
+                            >
+                                <Text style={[styles.cancelText, { color: colors.text }]}>Cancel</Text>
                             </TouchableOpacity>
                             <TouchableOpacity style={styles.saveBtn} onPress={handleConfirmUpload} disabled={saving}>
                                 <Text style={styles.saveText}>{saving ? 'Uploading...' : 'Confirm'}</Text>
@@ -409,18 +482,21 @@ export default function ProfileScreen() {
                     </View>
                 </View>
             </Modal>
-        </ScrollView>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#0B0B15' },
 
-    header: { paddingHorizontal: width * 0.05, marginBottom: 20 },
+    fixedHeader: { 
+        paddingHorizontal: width * 0.05, 
+        paddingBottom: 14,
+        borderBottomWidth: 0, // No outline
+    },
     headerContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    iconBtn: { padding: 8 },
-    headerTitle: { color: '#FFF', fontSize: 24, fontWeight: 'bold' },
-    settingsButton: { width: 44, height: 44, backgroundColor: '#1F1F2E', borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+    headerTitle: { fontSize: 26, fontWeight: 'bold' },
+    settingsButton: { width: 42, height: 42, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
     content: { paddingHorizontal: width * 0.05, paddingBottom: 100 },
 
     profileSection: { alignItems: 'center', marginBottom: 30 },

@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { ChevronLeft, Star } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as SecureStore from 'expo-secure-store';
 import { endpoints } from '../config/api';
+import { useTheme } from '../context/ThemeContext';
 
 interface ReviewItem {
     id: number;
@@ -19,6 +21,7 @@ interface ReviewItem {
 export default function MyReviewsScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
+    const { colors, isDark } = useTheme();
     const [reviews, setReviews] = useState<ReviewItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -70,7 +73,19 @@ export default function MyReviewsScreen() {
 
     const renderItem = ({ item }: { item: ReviewItem }) => (
         <TouchableOpacity
-            style={styles.reviewCard}
+            style={[
+                styles.reviewCard,
+                {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                    borderWidth: 1,
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 1 },
+                    shadowOpacity: isDark ? 0 : 0.05,
+                    shadowRadius: 3,
+                    elevation: isDark ? 0 : 1,
+                }
+            ]}
             onPress={() => router.push(`/movie/${item.movie_id}`)}
             activeOpacity={0.7}
         >
@@ -79,17 +94,17 @@ export default function MyReviewsScreen() {
                 style={styles.poster}
             />
             <View style={styles.reviewContent}>
-                <Text style={styles.movieTitle} numberOfLines={1}>{item.movie_title}</Text>
+                <Text style={[styles.movieTitle, { color: colors.text }]} numberOfLines={1}>{item.movie_title}</Text>
                 <View style={styles.starsRow}>
                     {renderStars(item.rating)}
                     <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
                 </View>
                 {item.comment ? (
-                    <Text style={styles.comment} numberOfLines={2}>{item.comment}</Text>
+                    <Text style={[styles.comment, { color: colors.textSecondary }]} numberOfLines={2}>{item.comment}</Text>
                 ) : (
-                    <Text style={styles.noComment}>No comment</Text>
+                    <Text style={[styles.noComment, { color: colors.textMuted }]}>No comment</Text>
                 )}
-                <Text style={styles.date}>
+                <Text style={[styles.date, { color: colors.textMuted }]}>
                     {item.created_at ? new Date(item.created_at).toLocaleDateString('en-US', {
                         year: 'numeric', month: 'short', day: 'numeric'
                     }) : ''}
@@ -99,12 +114,13 @@ export default function MyReviewsScreen() {
     );
 
     return (
-        <View style={[styles.container, { paddingTop: insets.top }]}>
-            <View style={styles.header}>
+        <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top + 8 }]}>
+            <StatusBar style={isDark ? 'light' : 'dark'} />
+            <View style={[styles.header, { borderBottomColor: colors.border }]}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <ChevronLeft color="#FFF" size={28} />
+                    <ChevronLeft color={colors.text} size={28} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>My Reviews</Text>
+                <Text style={[styles.headerTitle, { color: colors.text }]}>My Reviews</Text>
                 <View style={{ width: 40 }} />
             </View>
 

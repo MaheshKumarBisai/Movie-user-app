@@ -4,10 +4,14 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ArrowLeft, ArrowRight, CreditCard, Apple } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as SecureStore from 'expo-secure-store';
 import { endpoints } from '../../../config/api';
+import { useTheme } from '../../../context/ThemeContext';
 
 export default function CheckoutScreen() {
+    const { colors, isDark } = useTheme();
+    const insets = useSafeAreaInsets();
     const params = useLocalSearchParams();
     const router = useRouter();
     const [loading, setLoading] = useState(false);
@@ -48,6 +52,7 @@ export default function CheckoutScreen() {
             const token = await SecureStore.getItemAsync('token');
             if (!token) {
                 Alert.alert("Error", "Please login to book tickets");
+                setLoading(false);
                 return;
             }
 
@@ -148,15 +153,15 @@ export default function CheckoutScreen() {
     };
 
     return (
-        <View style={styles.container}>
-            <StatusBar style="light" />
+        <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top + 8 }]}>
+            <StatusBar style={isDark ? 'light' : 'dark'} />
 
             {/* Header */}
             <View style={styles.header}>
-                <TouchableOpacity onPress={handleBack} style={styles.iconBtn}>
-                    <ArrowLeft color="#FFF" size={24} />
+                <TouchableOpacity onPress={handleBack} style={[styles.iconBtn, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]}>
+                    <ArrowLeft color={colors.text} size={22} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Checkout</Text>
+                <Text style={[styles.headerTitle, { color: colors.text }]}>Checkout</Text>
                 <View style={{ width: 40 }} />
             </View>
 
@@ -164,31 +169,30 @@ export default function CheckoutScreen() {
             <View style={styles.stepsContainer}>
                 <View style={styles.step}>
                     <View style={[styles.stepDot, styles.stepActive]} />
-                    <Text style={[styles.stepText, styles.textActive]}>TICKETS</Text>
+                    <Text style={[styles.stepText, { color: colors.text }]}>TICKETS</Text>
                 </View>
                 <View style={styles.stepLine} />
                 <View style={styles.step}>
                     <View style={[styles.stepDot, styles.stepActive]} />
-                    <Text style={[styles.stepText, styles.textActive]}>SEATS</Text>
+                    <Text style={[styles.stepText, { color: colors.text }]}>SEATS</Text>
                 </View>
                 <View style={styles.stepLine} />
                 <View style={styles.step}>
                     <View style={[styles.stepDot, styles.stepActive]} />
-                    <Text style={[styles.stepText, styles.textActive]}>PAYMENT</Text>
+                    <Text style={[styles.stepText, { color: colors.text }]}>PAYMENT</Text>
                 </View>
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
 
                 {/* Order Summary Card */}
-                <View style={styles.orderCard}>
+                <View style={[styles.orderCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 }}>
                         <View style={{ flex: 1 }}>
                             <Text style={styles.cardLabel}>ORDER SUMMARY</Text>
-                            <Text style={styles.movieTitle}>{movieTitle}</Text>
-                            <Text style={styles.cinemaText}>{theatreName}</Text>
-                            <Text style={styles.dateText}>{showTime}</Text>
-                            {/* Ideally date too, e.g. "Today, 7:30 PM", showTime param only has time? check logic */}
+                            <Text style={[styles.movieTitle, { color: colors.text }]}>{movieTitle}</Text>
+                            <Text style={[styles.cinemaText, { color: colors.textSecondary }]}>{theatreName}</Text>
+                            <Text style={[styles.dateText, { color: colors.textSecondary }]}>{showTime}</Text>
                         </View>
                         <Image
                             source={{ uri: poster as string || 'https://via.placeholder.com/100' }}
@@ -196,7 +200,7 @@ export default function CheckoutScreen() {
                         />
                     </View>
 
-                    <View style={styles.divider} />
+                    <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
                     <View style={{ marginTop: 16 }}>
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
@@ -204,51 +208,56 @@ export default function CheckoutScreen() {
                             <Text style={styles.cardLabel}>TOTAL</Text>
                         </View>
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Text style={styles.seatLabel}>{seatLabels}</Text>
-                            <Text style={styles.seatPrice}>₹{amount.toFixed(2)}</Text>
+                            <Text style={[styles.seatLabel, { color: colors.text }]}>{seatLabels}</Text>
+                            <Text style={[styles.seatPrice, { color: colors.text }]}>₹{amount.toFixed(2)}</Text>
                         </View>
                     </View>
                 </View>
 
                 {/* Payment Method */}
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 30, marginBottom: 16 }}>
-                    <Text style={styles.sectionTitle}>Payment Method</Text>
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Payment Method</Text>
                     <TouchableOpacity><Text style={styles.changeBtn}>ADD NEW</Text></TouchableOpacity>
                 </View>
 
                 <TouchableOpacity
-                    style={[styles.paymentOption, paymentMethod === 'apple' && styles.paymentActive]}
+                    style={[
+                        styles.paymentOption,
+                        { backgroundColor: colors.surface, borderColor: paymentMethod === 'apple' ? '#8A2BE2' : colors.border }
+                    ]}
                     onPress={() => setPaymentMethod('apple')}
                 >
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <View style={styles.payIconContainer}>
-                            <Apple color="#000" size={20} />
-                            {/* Apple Pay Logo placeholder */}
+                        <View style={[styles.payIconContainer, { backgroundColor: isDark ? '#FFF' : '#F3E8FF' }]}>
+                            <Apple color={isDark ? '#000' : '#8A2BE2'} size={20} />
                         </View>
                         <View style={{ marginLeft: 16 }}>
-                            <Text style={styles.payTitle}>Apple Pay</Text>
-                            <Text style={styles.paySub}>DEFAULT WALLET</Text>
+                            <Text style={[styles.payTitle, { color: colors.text }]}>Apple Pay</Text>
+                            <Text style={[styles.paySub, { color: colors.textSecondary }]}>DEFAULT WALLET</Text>
                         </View>
                     </View>
-                    <View style={[styles.radioOuter, paymentMethod === 'apple' && { borderColor: '#8A2BE2' }]}>
+                    <View style={[styles.radioOuter, { borderColor: paymentMethod === 'apple' ? '#8A2BE2' : colors.border }]}>
                         {paymentMethod === 'apple' && <View style={styles.radioInner} />}
                     </View>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                    style={[styles.paymentOption, paymentMethod === 'card' && styles.paymentActive]}
+                    style={[
+                        styles.paymentOption,
+                        { backgroundColor: colors.surface, borderColor: paymentMethod === 'card' ? '#8A2BE2' : colors.border }
+                    ]}
                     onPress={() => setPaymentMethod('card')}
                 >
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <View style={[styles.payIconContainer, { backgroundColor: '#1F1F2E' }]}>
-                            <CreditCard color="#FFF" size={20} />
+                        <View style={[styles.payIconContainer, { backgroundColor: isDark ? '#1F1F2E' : '#F3E8FF' }]}>
+                            <CreditCard color={isDark ? '#FFF' : '#8A2BE2'} size={20} />
                         </View>
                         <View style={{ marginLeft: 16 }}>
-                            <Text style={styles.payTitle}>Credit Card</Text>
-                            <Text style={styles.paySub}>•••• •••• •••• 4582</Text>
+                            <Text style={[styles.payTitle, { color: colors.text }]}>Credit Card</Text>
+                            <Text style={[styles.paySub, { color: colors.textSecondary }]}>•••• •••• •••• 4582</Text>
                         </View>
                     </View>
-                    <View style={[styles.radioOuter, paymentMethod === 'card' && { borderColor: '#8A2BE2' }]}>
+                    <View style={[styles.radioOuter, { borderColor: paymentMethod === 'card' ? '#8A2BE2' : colors.border }]}>
                         {paymentMethod === 'card' && <View style={styles.radioInner} />}
                     </View>
                 </TouchableOpacity>
@@ -256,16 +265,16 @@ export default function CheckoutScreen() {
                 {/* Breakdown */}
                 <View style={{ marginTop: 30 }}>
                     <View style={styles.row}>
-                        <Text style={styles.rowLabel}>Subtotal</Text>
-                        <Text style={styles.rowValue}>₹{amount.toFixed(2)}</Text>
+                        <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>Subtotal</Text>
+                        <Text style={[styles.rowValue, { color: colors.text }]}>₹{amount.toFixed(2)}</Text>
                     </View>
                     <View style={styles.row}>
-                        <Text style={styles.rowLabel}>Service Fee</Text>
-                        <Text style={styles.rowValue}>₹0.00</Text>
+                        <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>Service Fee</Text>
+                        <Text style={[styles.rowValue, { color: colors.text }]}>₹0.00</Text>
                     </View>
-                    <View style={styles.divider} />
+                    <View style={[styles.divider, { backgroundColor: colors.border }]} />
                     <View style={[styles.row, { marginTop: 16 }]}>
-                        <Text style={styles.totalLabel}>Total Amount</Text>
+                        <Text style={[styles.totalLabel, { color: colors.text }]}>Total Amount</Text>
                         <Text style={styles.totalValue}>₹{finalAmount.toFixed(2)}</Text>
                     </View>
                 </View>
@@ -292,7 +301,7 @@ export default function CheckoutScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#0B0B15', paddingTop: 50 },
+    container: { flex: 1, backgroundColor: '#0B0B15' },
 
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginBottom: 20 },
     iconBtn: { padding: 8, backgroundColor: '#1F1F2E', borderRadius: 50 }, // Circular back button

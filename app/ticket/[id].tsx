@@ -11,15 +11,18 @@ import * as SecureStore from 'expo-secure-store';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { endpoints, API_URL } from '../../config/api';
 import { TextInput } from 'react-native';
+import { useTheme } from '../../context/ThemeContext';
 
 const { width } = Dimensions.get('window');
 
 export default function TicketScreen() {
+    const { colors, isDark } = useTheme();
     const { id, movieTitle, theatreName, screenName, showTime, showDate, seatLabels, bookingId, movieId, language, technology } = useLocalSearchParams();
     const formattedDate = showDate ? new Date(showDate as string).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).toUpperCase() : 'DATE';
     const router = useRouter();
     const insets = useSafeAreaInsets();
     const [qrValue, setQrValue] = useState("LOADING");
+    const [movieInfo, setMovieInfo] = useState<any>(null);
 
     // Review Modal State
     const [showReviewModal, setShowReviewModal] = useState(false);
@@ -34,6 +37,19 @@ export default function TicketScreen() {
             setQrValue(`BOOKING:${id}:${bookingId}`);
         }
     }, [id, bookingId]);
+
+    useEffect(() => {
+        if (movieId) {
+            fetch(`${endpoints.movies}/${movieId}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data && data.title) {
+                        setMovieInfo(data);
+                    }
+                })
+                .catch(() => {});
+        }
+    }, [movieId]);
 
     const handleShare = async () => {
         try {
@@ -152,73 +168,105 @@ export default function TicketScreen() {
     };
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
             <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
-                <StatusBar style="light" />
+                <StatusBar style={isDark ? 'light' : 'dark'} />
 
                 {/* Header */}
                 <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
-                    <TouchableOpacity onPress={() => router.replace('/(tabs)/home')} style={styles.iconBtn}>
-                        <ArrowLeft color="#FFF" size={24} />
+                    <TouchableOpacity onPress={() => router.replace('/(tabs)/home')} style={[styles.iconBtn, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]}>
+                        <ArrowLeft color={colors.text} size={22} />
                     </TouchableOpacity>
-                    <Text style={styles.headerTitle}>E-TICKET</Text>
-                    <TouchableOpacity style={styles.iconBtn} onPress={handleShare}>
-                        <Share2 color="#FFF" size={24} />
+                    <Text style={[styles.headerTitle, { color: colors.text }]}>E-TICKET</Text>
+                    <TouchableOpacity style={[styles.iconBtn, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]} onPress={handleShare}>
+                        <Share2 color={colors.text} size={22} />
                     </TouchableOpacity>
                 </View>
 
-                {/* Success Animation Placeholder */}
+                {/* Success Animation */}
                 <View style={styles.successContainer}>
                     <View style={styles.successCircle}>
-                        <LinearGradient
-                            colors={['#8A2BE2', '#4B0082']}
-                            style={styles.successGradient}
-                        >
-                            <Check color="#FFF" size={40} strokeWidth={3} />
-                        </LinearGradient>
+                        <Check color="#FFF" size={38} strokeWidth={3.5} />
                     </View>
-                    <Text style={styles.successTitle}>Booking Confirmed!</Text>
-                    <Text style={styles.successSubtitle}>Your seat is successfully reserved.</Text>
+                    <Text style={[styles.successTitle, { color: colors.text }]}>Booking Confirmed!</Text>
+                    <Text style={[styles.successSubtitle, { color: colors.textSecondary }]}>Your seat is successfully reserved.</Text>
                 </View>
 
                 {/* Ticket Card */}
-                <View style={styles.ticketCard}>
+                <View style={[
+                    styles.ticketCard, 
+                    { 
+                        backgroundColor: colors.surface, 
+                        borderColor: colors.border,
+                        shadowColor: '#000',
+                        shadowOffset: { width: 0, height: 4 },
+                        shadowOpacity: isDark ? 0.3 : 0.08,
+                        shadowRadius: 12,
+                        elevation: isDark ? 0 : 4,
+                    }
+                ]}>
                     {/* Movie Info */}
                     <View style={styles.cardHeader}>
-                        <View>
+                        <View style={{ flex: 1 }}>
                             <Text style={styles.label}>MOVIE</Text>
-                            <Text style={styles.movieTitle}>{movieTitle}</Text>
-                            <Text style={styles.movieMeta}>{technology || 'Standard'} • {language || 'English'}</Text>
+                            <Text style={[styles.movieTitle, { color: colors.text }]}>{movieTitle}</Text>
+                            <View style={styles.badgeRow}>
+                                {(() => {
+                                    const genreTag = movieInfo?.genre ? movieInfo.genre.split(',')[0].trim().toUpperCase() : null;
+                                    const durationTag = movieInfo?.duration_minutes ? `${movieInfo.duration_minutes} MIN` : null;
+                                    const techTag = technology && technology !== 'Standard' && technology !== 'STANDARD' ? String(technology).toUpperCase() : null;
+                                    const primaryTag = techTag || genreTag || durationTag;
+                                    const langTag = (language || movieInfo?.language || 'English').toUpperCase();
+
+                                    return (
+                                        <>
+                                            {primaryTag && (
+                                                <View style={[styles.pillBadge, { backgroundColor: isDark ? 'rgba(138, 43, 226, 0.2)' : '#F3E8FF' }]}>
+                                                    <Text style={[styles.pillBadgeText, { color: '#8A2BE2' }]}>{primaryTag}</Text>
+                                                </View>
+                                            )}
+                                            <View style={[styles.pillBadge, { backgroundColor: isDark ? '#1F1F2E' : '#F3F4F6', marginLeft: primaryTag ? 8 : 0 }]}>
+                                                <Text style={[styles.pillBadgeText, { color: colors.textSecondary }]}>{langTag}</Text>
+                                            </View>
+                                            {durationTag && primaryTag !== durationTag && (
+                                                <View style={[styles.pillBadge, { backgroundColor: isDark ? '#1F1F2E' : '#F3F4F6', marginLeft: 8 }]}>
+                                                    <Text style={[styles.pillBadgeText, { color: colors.textSecondary }]}>{durationTag}</Text>
+                                                </View>
+                                            )}
+                                        </>
+                                    );
+                                })()}
+                            </View>
                         </View>
                     </View>
 
-                    <View style={styles.divider} />
+                    <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
                     {/* Details Grid */}
                     <View style={styles.detailsGrid}>
                         <View style={styles.detailItem}>
                             <Text style={styles.label}>DATE</Text>
-                            <Text style={styles.value}>{formattedDate}</Text>
+                            <Text style={[styles.value, { color: colors.text }]}>{formattedDate}</Text>
                         </View>
                         <View style={styles.detailItem}>
                             <Text style={styles.label}>TIME</Text>
-                            <Text style={styles.value}>{showTime}</Text>
+                            <Text style={[styles.value, { color: colors.text }]}>{showTime}</Text>
                         </View>
                         <View style={styles.detailItem}>
                             <Text style={styles.label}>THEATER</Text>
-                            <Text style={styles.value}>{theatreName} - {screenName}</Text>
+                            <Text style={[styles.value, { color: colors.text }]}>{theatreName} - {screenName}</Text>
                         </View>
                         <View style={styles.detailItem}>
                             <Text style={styles.label}>SEAT</Text>
-                            <Text style={styles.value}>{seatLabels}</Text>
+                            <Text style={[styles.value, { color: isDark ? colors.text : '#000000', fontWeight: '800' }]}>{seatLabels}</Text>
                         </View>
                     </View>
 
-                    {/* Dashed Separator */}
+                    {/* Dashed Separator with cutouts matching background */}
                     <View style={styles.dashedContainer}>
-                        <View style={[styles.circle, { left: -30 }]} />
-                        <View style={styles.dashedLine} />
-                        <View style={[styles.circle, { right: -30 }]} />
+                        <View style={[styles.circle, { left: -36, backgroundColor: colors.background }]} />
+                        <View style={[styles.dashedLine, { borderColor: colors.border }]} />
+                        <View style={[styles.circle, { right: -36, backgroundColor: colors.background }]} />
                     </View>
 
                     {/* QR Code */}
@@ -226,14 +274,12 @@ export default function TicketScreen() {
                         <View style={styles.qrWrapper}>
                             <QRCode
                                 value={qrValue}
-                                size={160}
-                                color="#FFF"
-                                backgroundColor="transparent"
+                                size={150}
+                                color="#111827"
+                                backgroundColor="#FFFFFF"
                             />
-                            <View style={styles.qrGlow} />
                         </View>
-                        <Text style={styles.scanText}>SCAN AT ENTRANCE</Text>
-                        <Text style={styles.bookingId}>Booking ID: #{bookingId}</Text>
+                        <Text style={[styles.scanText, { color: isDark ? colors.text : '#000000' }]}>SCAN AT ENTRANCE</Text>
                     </View>
                 </View>
 
@@ -244,9 +290,19 @@ export default function TicketScreen() {
                         <Text style={styles.btnText}>Write a Review</Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={styles.downloadBtn} onPress={handleDownloadPDF}>
-                        <Download color="#FFF" size={20} style={{ marginRight: 8 }} />
-                        <Text style={styles.btnText}>Download PDF Ticket</Text>
+                    <TouchableOpacity 
+                        style={[
+                            styles.downloadBtn, 
+                            { 
+                                backgroundColor: colors.surface, 
+                                borderColor: colors.border,
+                                borderWidth: 1 
+                            }
+                        ]} 
+                        onPress={handleDownloadPDF}
+                    >
+                        <Download color={colors.text} size={20} style={{ marginRight: 8 }} />
+                        <Text style={[styles.btnText, { color: colors.text }]}>Download PDF Ticket</Text>
                     </TouchableOpacity>
 
                     {!cancelled && (
@@ -276,19 +332,19 @@ export default function TicketScreen() {
                     behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                     style={styles.modalOverlay}
                 >
-                    <View style={[styles.modalContent, { paddingBottom: insets.bottom + 16 }]}>
+                    <View style={[styles.modalContent, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, paddingBottom: insets.bottom + 16 }]}>
                         <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Rate {movieTitle}</Text>
+                            <Text style={[styles.modalTitle, { color: colors.text }]}>Rate {movieTitle}</Text>
                             <TouchableOpacity onPress={() => setShowReviewModal(false)}>
-                                <X color="#6B7280" size={24} />
+                                <X color={colors.textSecondary} size={24} />
                             </TouchableOpacity>
                         </View>
 
                         {reviewSuccess ? (
                             <View style={styles.successState}>
                                 <Check color="#10B981" size={48} />
-                                <Text style={styles.successHeading}>Thank You!</Text>
-                                <Text style={styles.successSubtext}>Your review has been posted publicly.</Text>
+                                <Text style={[styles.successHeading, { color: colors.text }]}>Thank You!</Text>
+                                <Text style={[styles.successSubtext, { color: colors.textSecondary }]}>Your review has been posted publicly.</Text>
                             </View>
                         ) : (
                             <View>
@@ -298,7 +354,7 @@ export default function TicketScreen() {
                                         <TouchableOpacity key={star} onPress={() => setRating(star)}>
                                             <Star
                                                 size={40}
-                                                color={star <= rating ? "#FACC15" : "#4B5563"}
+                                                color={star <= rating ? "#FACC15" : "#9CA3AF"}
                                                 fill={star <= rating ? "#FACC15" : "transparent"}
                                                 style={{ marginHorizontal: 4 }}
                                             />
@@ -308,9 +364,16 @@ export default function TicketScreen() {
 
                                 {/* Comment */}
                                 <TextInput
-                                    style={styles.reviewInput}
+                                    style={[
+                                        styles.reviewInput, 
+                                        { 
+                                            backgroundColor: colors.inputBg, 
+                                            color: colors.text, 
+                                            borderColor: colors.border 
+                                        }
+                                    ]}
                                     placeholder="What did you think of the movie? (Optional)"
-                                    placeholderTextColor="#6B7280"
+                                    placeholderTextColor={colors.textMuted}
                                     multiline
                                     numberOfLines={4}
                                     value={comment}
@@ -340,37 +403,59 @@ const styles = StyleSheet.create({
     iconBtn: { padding: 8, backgroundColor: '#1F1F2E', borderRadius: 20 },
     headerTitle: { color: '#FFF', fontSize: 16, fontWeight: 'bold', letterSpacing: 1 },
 
-    successContainer: { alignItems: 'center', marginBottom: 30 },
-    successCircle: { width: 80, height: 80, borderRadius: 40, padding: 3, marginBottom: 16, backgroundColor: '#1F1F2E' },
-    successGradient: { flex: 1, borderRadius: 40, justifyContent: 'center', alignItems: 'center' },
+    successContainer: { alignItems: 'center', marginBottom: 28 },
+    successCircle: { 
+        width: 72, 
+        height: 72, 
+        borderRadius: 36, 
+        backgroundColor: '#8A2BE2', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        marginBottom: 14,
+        shadowColor: '#8A2BE2',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.35,
+        shadowRadius: 10,
+        elevation: 6
+    },
     successTitle: { color: '#FFF', fontSize: 24, fontWeight: 'bold', marginBottom: 6 },
     successSubtitle: { color: '#9CA3AF', fontSize: 14 },
 
     ticketCard: { marginHorizontal: width * 0.05, backgroundColor: '#13131A', borderRadius: 24, padding: 24, borderWidth: 1, borderColor: '#1F1F2E' },
 
-    cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
-    label: { color: '#6B7280', fontSize: 10, fontWeight: 'bold', marginBottom: 6, letterSpacing: 1, textTransform: 'uppercase' },
-    movieTitle: { color: '#FFF', fontSize: 22, fontWeight: 'bold', marginBottom: 4, width: '80%' },
-    movieMeta: { color: '#9CA3AF', fontSize: 12 },
-    ratingBadge: { paddingHorizontal: 8, paddingVertical: 4, backgroundColor: '#2D2D3F', borderRadius: 4 },
-    ratingText: { color: '#A78BFA', fontSize: 10, fontWeight: 'bold' },
+    cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 },
+    label: { color: '#8A2BE2', fontSize: 10, fontWeight: 'bold', marginBottom: 6, letterSpacing: 1.5, textTransform: 'uppercase' },
+    movieTitle: { color: '#FFF', fontSize: 22, fontWeight: 'bold', marginBottom: 8, flexShrink: 1 },
+    badgeRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
+    pillBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
+    pillBadgeText: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
 
-    divider: { height: 1, backgroundColor: '#1F1F2E', marginVertical: 20 },
+    divider: { height: 1, backgroundColor: '#1F1F2E', marginVertical: 18 },
 
-    detailsGrid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 24 },
+    detailsGrid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 20 },
     detailItem: { width: '50%' },
-    value: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
+    value: { color: '#FFF', fontSize: 15, fontWeight: '700', marginTop: 2 },
 
-    dashedContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginVertical: 30, position: 'relative', marginHorizontal: -24 },
-    circle: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#0B0B15', position: 'absolute', top: -20 },
+    dashedContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginVertical: 26, position: 'relative', marginHorizontal: -24 },
+    circle: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#0B0B15', position: 'absolute', top: -18 },
     dashedLine: { flex: 1, height: 1, borderWidth: 1, borderColor: '#2D2D3F', borderStyle: 'dashed', marginHorizontal: 20 },
 
-    qrContainer: { alignItems: 'center', paddingTop: 10 },
-    qrWrapper: { padding: 10, borderRadius: 16, marginBottom: 20, position: 'relative' },
-    qrGlow: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderColor: '#8A2BE2', borderWidth: 2, borderRadius: 16, opacity: 0.5, shadowColor: '#8A2BE2', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.8, shadowRadius: 20 },
+    qrContainer: { alignItems: 'center', paddingTop: 6 },
+    qrWrapper: { 
+        padding: 14, 
+        borderRadius: 20, 
+        marginBottom: 16, 
+        backgroundColor: '#FFFFFF',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 3,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+    },
 
-    scanText: { color: '#6B7280', fontSize: 10, fontWeight: 'bold', letterSpacing: 2, marginBottom: 6 },
-    bookingId: { color: '#9CA3AF', fontSize: 12 },
+    scanText: { color: '#000000', fontSize: 11, fontWeight: '800', letterSpacing: 2, marginBottom: 4 },
 
     actions: { marginHorizontal: width * 0.05, marginTop: 30, gap: 16 },
     reviewBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#8A2BE2', height: 56, borderRadius: 16 },
