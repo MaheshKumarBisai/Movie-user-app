@@ -1,6 +1,6 @@
 # 🎬 ShowGo — Frontend (User App)
 
-> Mobile client for **ShowGo** built with **React Native** and **Expo SDK 54**. Allows users to discover movies, select seats, book tickets, make payments, and view booking history.
+> Mobile client for **ShowGo** built with **React Native** and **Expo SDK 58**. Allows users to discover movies, select seats, book tickets, make payments, and view booking history.
 
 ---
 
@@ -19,38 +19,37 @@
 ### 2. Installation
 
 ```bash
-# Navigate to the frontend directory
-cd frontend
+# Navigate to the user app directory
+cd Movie-user-app
 
-# Install all dependencies
-npm install
+# Install all dependencies (use --legacy-peer-deps for React 19 / Expo 58 compatibility)
+npm install --legacy-peer-deps
 ```
 
 ---
 
 ### 3. Environment Configuration
 
-Create or update the `.env` file in the `frontend/` root:
+Create or update the `.env` file in `Movie-user-app/`:
 
 ```env
 # Point to your running backend API
 # NOTE: Use your machine's local network IP (e.g. 192.168.x.x) or EC2 public IP. Do NOT use localhost on a physical device.
-EXPO_PUBLIC_API_URL=http://192.168.1.100:8000
+EXPO_PUBLIC_API_URL=http://192.168.1.2:8000
 ```
 
 > **Find your local IP:**
 > - **Windows (PowerShell/CMD):** `ipconfig` (look for IPv4 Address)
 > - **macOS / Linux:** `ipconfig getifaddr en0` or `hostname -I`
+> 
+> *Note: The app dynamically falls back to the Expo dev server host IP via `Constants.expoConfig?.hostUri` if `EXPO_PUBLIC_API_URL` is omitted.*
 
 ---
 
 ### 4. Start Development Server
 
 ```bash
-# Start Metro bundler
-npx expo start
-
-# Or start with a clean cache (recommended after changing .env or dependencies)
+# Start Metro bundler with clean cache
 npx expo start -c
 ```
 
@@ -61,14 +60,18 @@ npx expo start -c
 
 ---
 
-## 🛠️ Common Commands
+## 🛠️ Common Commands & SDK 58 Maintenance
 
 | Command | Action |
 |---|---|
-| `npx expo start` | Start Expo dev server |
-| `npx expo start -c` | Start with cache cleared |
-| `npx expo doctor` | Diagnose dependency & configuration issues |
-| `npx expo install --fix` | Automatically resolve dependency version mismatches |
+| `npm install --legacy-peer-deps` | Install dependencies cleanly without npm peer resolution conflicts |
+| `npx expo start -c` | Start Metro dev server with cache cleared (recommended) |
+| `npx expo-doctor` | Diagnose dependency & configuration issues (all 20 checks should pass) |
+| `npx expo install expo@^58.0.0 --fix -- --legacy-peer-deps` | Upgrade / reconcile packages to match Expo SDK 58 |
+
+### Notes on Expo SDK 58 & Android Edge-to-Edge:
+- **Edge-to-Edge:** Android 15 / Expo SDK 58 enables Edge-to-Edge by default. Do not use legacy `RNStatusBar.setTranslucent` or `RNStatusBar.setBackgroundColor` in code or `edgeToEdgeEnabled` / `newArchEnabled` in `app.json`.
+- Status bar appearance is styled using `<StatusBar style="..." />` from `expo-status-bar`.
 
 ---
 
@@ -104,7 +107,7 @@ To enable the pipeline, add your Expo token to GitHub:
 ## 📂 Project Structure
 
 ```
-frontend/
+Movie-user-app/
 ├── app/                  # App routes & screens (Expo Router file-based)
 │   ├── (tabs)/           # Main tab navigation (home, search, tickets, profile)
 │   ├── movie/[id]/       # Movie details, cinema selection, seat selection, checkout
