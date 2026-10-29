@@ -7,12 +7,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#000000"
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.maheshb.frontend",
@@ -28,14 +22,10 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#000000"
       },
-      "package": "com.maheshb.frontend",
-      "edgeToEdgeEnabled": true
+      "package": "com.maheshb.frontend"
     },
     "androidStatusBar": {
       "translucent": true,
-      "backgroundColor": "#00000000"
-    },
-    "androidNavigationBar": {
       "backgroundColor": "#00000000"
     },
     "web": {
@@ -57,7 +47,8 @@
       ],
       "expo-image",
       "expo-sharing",
-      "expo-status-bar"
+      "expo-status-bar",
+      "expo-splash-screen"
     ],
     "extra": {
       "router": {},
@@ -68,3 +59,4 @@
     "owner": "mahesh-b"
   }
 }
+

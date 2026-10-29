@@ -1,13 +1,16 @@
 # Dependencies
 node_modules/
+.pnp
+.pnp.js
 
 # Expo
 .expo/
+.expo-shared/
 dist/
 web-build/
 expo-env.d.ts
 
-# Native (generated on build)
+# Native (generated on prebuild / local build)
 /ios/
 /android/
 .kotlin/
@@ -25,12 +28,19 @@ expo-env.d.ts
 # Metro bundler
 .metro-health-check*
 
-# Debug logs
+# Debug & system logs
+*.log
 npm-debug.*
 yarn-debug.*
 yarn-error.*
+pnpm-debug.*
 
-# macOS & OS
+# Testing & Coverage
+coverage/
+*.lcov
+.nyc_output/
+
+# macOS & OS files
 .DS_Store
 .DS_Store?
 ._*
@@ -39,10 +49,13 @@ yarn-error.*
 Thumbs.db
 ehthumbs.db
 
-# Environment variables (contains secrets like API URLs)
+# Environment variables & secrets (contains local IP / API URLs)
 .env
 .env.local
 .env*.local
+.env.development.local
+.env.test.local
+.env.production.local
 
 # TypeScript build info
 *.tsbuildinfo
@@ -53,6 +66,11 @@ ehthumbs.db
 *.swp
 *.swo
 *~
+*.sublime-project
+*.sublime-workspace
 
 # EAS build artifacts (local)
 build/
+*.apk
+*.aab
+*.ipa

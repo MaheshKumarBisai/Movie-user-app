@@ -1,7 +1,19 @@
 import Constants from 'expo-constants';
 
-// Use environment variable for API URL
-export const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000';
+// Dynamically resolve API URL: prefer env, then Expo host IP, then Wi-Fi IP fallback
+const getApiUrl = () => {
+    if (process.env.EXPO_PUBLIC_API_URL) {
+        return process.env.EXPO_PUBLIC_API_URL;
+    }
+    const hostUri = Constants.expoConfig?.hostUri;
+    if (hostUri) {
+        const hostIp = hostUri.split(':')[0];
+        return `http://${hostIp}:8000`;
+    }
+    return 'http://192.168.1.2:8000';
+};
+
+export const API_URL = getApiUrl();
 
 export const endpoints = {
     requestOtp: `${API_URL}/auth/request-otp`,

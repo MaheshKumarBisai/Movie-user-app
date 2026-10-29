@@ -1,5 +1,4 @@
 import { useEffect, useCallback } from 'react';
-import { Platform, StatusBar as RNStatusBar } from 'react-native';
 import { Stack, useRouter, SplashScreen, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -54,10 +53,6 @@ function RootLayoutNav() {
 
     useEffect(() => {
         onLayoutRootView();
-        if (Platform.OS === 'android') {
-            RNStatusBar.setTranslucent(true);
-            RNStatusBar.setBackgroundColor('transparent');
-        }
     }, [onLayoutRootView]);
 
     if (loading) {
@@ -102,3 +97,5 @@ export default function RootLayout() {
         </SafeAreaProvider>
     );
 }
+
+
